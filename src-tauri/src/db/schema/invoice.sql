@@ -1,7 +1,7 @@
 CREATE TABLE IF NOT EXISTS invoice (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     invoice_number TEXT NOT NULL,
-    date TEXT NOT NULL,
+    invoice_date TEXT NOT NULL,
     issuer_name TEXT NOT NULL,
     issuer_address TEXT NOT NULL,
     issuer_phone TEXT NOT NULL, 
