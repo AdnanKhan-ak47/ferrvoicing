@@ -1,6 +1,8 @@
 mod user;
 
 use tauri::command;
+
+use crate::{commands::company::{add_company, search_company}, db::init_db};
 pub mod db;
 pub mod models;
 pub mod commands;
@@ -16,9 +18,14 @@ pub fn run() {
                         .build(),
                 )?;
             }
+            init_db().expect("Failed to initialize the database");
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![greet])
+        .invoke_handler(tauri::generate_handler![
+            greet,
+            add_company,
+            search_company,
+            ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

@@ -18,5 +18,5 @@ CREATE TABLE IF NOT EXISTS invoice (
     sgst_percentage REAL,
     igst_percentage REAL,
     additional_charges_json TEXT,
-    total_amount REAL NOT NULL,
+    total_amount REAL NOT NULL
 );

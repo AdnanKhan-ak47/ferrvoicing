@@ -1,7 +1,7 @@
 "use client"
 
 import type * as React from "react"
-import { Receipt, Settings } from "lucide-react"
+import { Receipt, Settings, Users } from "lucide-react"
 
 import { NavMain } from "@/components/nav-main"
 import { NavUser } from "@/components/nav-user"
@@ -49,6 +49,21 @@ const data = {
         {
           title: "Overdue",
           url: "/invoices?status=overdue",
+        },
+      ],
+    },
+    {
+      title: "Clients",
+      url: "/clients",
+      icon: Users,
+      items: [
+        {
+          title: "All Clients",
+          url: "/clients",
+        },
+        {
+          title: "Add Client",
+          url: "/clients?add=true",
         },
       ],
     },

@@ -10,29 +10,101 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { CreateDocumentDialog } from "@/components/create-document-dialog"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 const invoiceData = [
-  { id: "INV-001", client: "Acme Corp", amount: "$2,500.00", status: "paid", date: "2024-01-15" },
-  { id: "INV-002", client: "Tech Solutions", amount: "$1,800.00", status: "sent", date: "2024-01-20" },
-  { id: "INV-003", client: "Design Studio", amount: "$3,200.00", status: "draft", date: "2024-01-22" },
+  {
+    id: "INV-001",
+    client: "Acme Corp",
+    owner: "John Smith",
+    gst: "27AABCU9603R1ZX",
+    amount: "$2,500.00",
+    status: "paid",
+    date: "2024-01-15",
+  },
+  {
+    id: "INV-002",
+    client: "Tech Solutions",
+    owner: "Priya Sharma",
+    gst: "29AABCT1332L1ZZ",
+    amount: "$1,800.00",
+    status: "sent",
+    date: "2024-01-20",
+  },
+  {
+    id: "INV-003",
+    client: "Design Studio",
+    owner: "Rahul Gupta",
+    gst: "07AABCD2345E1ZY",
+    amount: "$3,200.00",
+    status: "draft",
+    date: "2024-01-22",
+  },
 ]
 
 const debitNoteData = [
-  { id: "DN-001", client: "Acme Corp", amount: "$150.00", status: "sent", date: "2024-01-18" },
-  { id: "DN-002", client: "Tech Solutions", amount: "$75.00", status: "paid", date: "2024-01-25" },
+  {
+    id: "DN-001",
+    client: "Acme Corp",
+    owner: "John Smith",
+    gst: "27AABCU9603R1ZX",
+    amount: "$150.00",
+    status: "sent",
+    date: "2024-01-18",
+  },
+  {
+    id: "DN-002",
+    client: "Tech Solutions",
+    owner: "Priya Sharma",
+    gst: "29AABCT1332L1ZZ",
+    amount: "$75.00",
+    status: "paid",
+    date: "2024-01-25",
+  },
 ]
 
 const creditNoteData = [
-  { id: "CN-001", client: "Design Studio", amount: "$200.00", status: "sent", date: "2024-01-20" },
+  {
+    id: "CN-001",
+    client: "Design Studio",
+    owner: "Rahul Gupta",
+    gst: "07AABCD2345E1ZY",
+    amount: "$200.00",
+    status: "sent",
+    date: "2024-01-20",
+  },
 ]
 
-function DocumentTable({ data, type }: { data: any[]; type: string }) {
+function DocumentTable({
+  data,
+  type,
+  searchTerm,
+  searchBy,
+}: { data: any[]; type: string; searchTerm: string; searchBy: string }) {
+  const filteredData = data.filter((item) => {
+    if (!searchTerm) return true
+
+    const term = searchTerm.toLowerCase()
+    switch (searchBy) {
+      case "name":
+        return item.client.toLowerCase().includes(term)
+      case "owner":
+        return item.owner.toLowerCase().includes(term)
+      case "gst":
+        return item.gst.toLowerCase().includes(term)
+      default:
+        return true
+    }
+  })
+
   return (
     <Table>
       <TableHeader>
         <TableRow>
           <TableHead>Document ID</TableHead>
           <TableHead>Client</TableHead>
+          <TableHead>Owner</TableHead>
+          <TableHead>GST Number</TableHead>
           <TableHead>Amount</TableHead>
           <TableHead>Status</TableHead>
           <TableHead>Date</TableHead>
@@ -40,10 +112,12 @@ function DocumentTable({ data, type }: { data: any[]; type: string }) {
         </TableRow>
       </TableHeader>
       <TableBody>
-        {data.map((item) => (
+        {filteredData.map((item) => (
           <TableRow key={item.id}>
             <TableCell className="font-medium">{item.id}</TableCell>
             <TableCell>{item.client}</TableCell>
+            <TableCell>{item.owner}</TableCell>
+            <TableCell className="font-mono text-sm">{item.gst}</TableCell>
             <TableCell>{item.amount}</TableCell>
             <TableCell>
               <Badge variant={item.status === "paid" ? "default" : item.status === "sent" ? "secondary" : "outline"}>
@@ -76,6 +150,13 @@ function DocumentTable({ data, type }: { data: any[]; type: string }) {
             </TableCell>
           </TableRow>
         ))}
+        {filteredData.length === 0 && (
+          <TableRow>
+            <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+              {searchTerm ? `No ${type}s found matching your search.` : `No ${type}s found.`}
+            </TableCell>
+          </TableRow>
+        )}
       </TableBody>
     </Table>
   )
@@ -83,6 +164,21 @@ function DocumentTable({ data, type }: { data: any[]; type: string }) {
 
 export function InvoiceTabs() {
   const [activeTab, setActiveTab] = useState("invoices")
+  const [searchTerm, setSearchTerm] = useState("")
+  const [searchBy, setSearchBy] = useState<"name" | "owner" | "gst">("name")
+
+  const getCurrentDocumentType = () => {
+    switch (activeTab) {
+      case "invoices":
+        return "invoice"
+      case "debit-notes":
+        return "debit-note"
+      case "credit-notes":
+        return "credit-note"
+      default:
+        return "invoice"
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -102,11 +198,26 @@ export function InvoiceTabs() {
       <div className="flex items-center space-x-2">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Search documents..." className="pl-8" />
+          <Input
+            placeholder={`Search ${activeTab} by ${searchBy === "name" ? "company name" : searchBy === "owner" ? "owner name" : "GST number"}...`}
+            className="pl-8"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
         </div>
+        <Select value={searchBy} onValueChange={(value: "name" | "owner" | "gst") => setSearchBy(value)}>
+          <SelectTrigger className="w-[140px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="name">Name</SelectItem>
+            <SelectItem value="owner">Owner Name</SelectItem>
+            <SelectItem value="gst">GST Number</SelectItem>
+          </SelectContent>
+        </Select>
         <Button variant="outline" size="sm">
           <Filter className="mr-2 h-4 w-4" />
-          Filter
+          Advanced
         </Button>
       </div>
 
@@ -124,7 +235,7 @@ export function InvoiceTabs() {
               <CardDescription>Manage and track your invoices</CardDescription>
             </CardHeader>
             <CardContent>
-              <DocumentTable data={invoiceData} type="invoice" />
+              <DocumentTable data={invoiceData} type="invoice" searchTerm={searchTerm} searchBy={searchBy} />
             </CardContent>
           </Card>
         </TabsContent>
@@ -136,7 +247,7 @@ export function InvoiceTabs() {
               <CardDescription>Track additional charges and adjustments</CardDescription>
             </CardHeader>
             <CardContent>
-              <DocumentTable data={debitNoteData} type="debit-note" />
+              <DocumentTable data={debitNoteData} type="debit-note" searchTerm={searchTerm} searchBy={searchBy} />
             </CardContent>
           </Card>
         </TabsContent>
@@ -148,7 +259,7 @@ export function InvoiceTabs() {
               <CardDescription>Manage refunds and credit adjustments</CardDescription>
             </CardHeader>
             <CardContent>
-              <DocumentTable data={creditNoteData} type="credit-note" />
+              <DocumentTable data={creditNoteData} type="credit-note" searchTerm={searchTerm} searchBy={searchBy} />
             </CardContent>
           </Card>
         </TabsContent>
