@@ -24,6 +24,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { cn } from "@/lib/utils"
 import { Separator } from "@/components/ui/separator"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { invoke } from "@tauri-apps/api/core"
 
 interface LineItem {
   description: string
@@ -36,47 +37,13 @@ interface LineItem {
 interface Client {
   id: string
   name: string
-  ownerName: string
-  gstNumber: string
+  owner_name: string
+  gst_number: string
   address: string
+  phone: string
+  email: string
 }
 
-// Mock function to simulate backend API call
-const searchClients = async (searchTerm: string): Promise<Client[]> => {
-  // Simulate API delay
-  await new Promise((resolve) => setTimeout(resolve, 300))
-
-  // Mock data - replace with actual API call
-  const mockClients: Client[] = [
-    {
-      id: "1",
-      name: "Acme Corporation",
-      ownerName: "John Smith",
-      gstNumber: "27AABCU9603R1ZX",
-      address: "123 Business Park, Mumbai, Maharashtra 400001",
-    },
-    {
-      id: "2",
-      name: "Tech Solutions Pvt Ltd",
-      ownerName: "Priya Sharma",
-      gstNumber: "29AABCT1332L1ZZ",
-      address: "456 IT Hub, Bangalore, Karnataka 560001",
-    },
-    {
-      id: "3",
-      name: "Design Studio Inc",
-      ownerName: "Rahul Gupta",
-      gstNumber: "07AABCD2345E1ZY",
-      address: "789 Creative Lane, Delhi 110001",
-    },
-  ]
-
-  return mockClients.filter(
-    (client) =>
-      client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      client.ownerName.toLowerCase().includes(searchTerm.toLowerCase()),
-  )
-}
 
 export function CreateDocumentDialog({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false)
@@ -85,6 +52,7 @@ export function CreateDocumentDialog({ children }: { children: React.ReactNode }
   const [lineItems, setLineItems] = useState<LineItem[]>([
     { description: "", hsnCode: "", quantity: 1, rate: 0, amount: 0 },
   ])
+  const [documentNumber, setDocumentNumber] = useState<string>("")
 
   // Client search state
   const [clientSearch, setClientSearch] = useState("")
@@ -99,21 +67,85 @@ export function CreateDocumentDialog({ children }: { children: React.ReactNode }
   const [sgstRate, setSgstRate] = useState(9)
   const [igstRate, setIgstRate] = useState(18)
 
+  const searchClients = async (query: string) => {
+    try {
+      const searchFilter: string = "name";
+
+      // let searchFilter: string = searchBy.toString();
+      // if (searchBy === "name") {
+      //   searchFilter = "name";
+      // } else if (searchBy === "owner") {
+      //   searchFilter = "ownerName";
+      // } else if (searchBy === "gst") {
+      //   searchFilter = "gstNumber";
+      // }
+
+      const res = await invoke<Client[]>("search_company", {
+        filter: {
+          [searchFilter]: query.trim()
+        }
+      })
+      console.log("these are the clients", res)
+      return res;
+    } catch (error) {
+      console.error("Failed to fetch clients:", error)
+    }
+  }
+
+  const handleDocumentCreate = async () => {
+
+    const items = lineItems.map(item => ({
+      description: item.description,
+      hsn_code: item.hsnCode,
+      quantity: item.quantity,
+      rate: item.rate,
+      amount: item.amount
+    }));
+
+    if (documentType === "invoice") {
+      const createInvoice = await invoke("create_invoice", {
+        invoice: {
+          issuer_name: "Qasmi Traders",
+          issuer_address: "",
+          issuer_gst_number: "",
+          issuer_phone: "9969393260",
+          issuer_email: "qasmitraders@gmail.com",
+          recipient_name: selectedClient?.name,
+          recipient_address: selectedClient?.address,
+          recipient_gst_number: selectedClient?.gst_number,
+          recipient_phone: selectedClient?.phone,
+          recipient_email: selectedClient?.email || "",
+          items, // This is the serialized JSON string of items
+          invoice_date: date ? format(date, "yyyy-MM-dd") : new Date().toISOString().split("T")[0],
+          invoice_number: documentNumber,
+          amount: lineItems.reduce((sum, item) => sum + item.amount, 0),
+          cgst_percentage: cgstRate,
+          sgst_percentage: sgstRate,
+          igst_percentage: igstRate,
+          // additional_charges_json,
+          total: total
+        }
+      })
+      console.log("Invoice created:", createInvoice)
+      setOpen(false)
+    }
+  }
+
   // Search clients when search term changes
   useEffect(() => {
     const searchTimeout = setTimeout(async () => {
       if (clientSearch.trim()) {
         setIsSearching(true)
         try {
-          const results = await searchClients(clientSearch)
-          setClients(results)
+          const result = await searchClients(clientSearch)
+          setClients(result || [])
         } catch (error) {
           console.error("Error searching clients:", error)
         } finally {
           setIsSearching(false)
         }
       } else {
-        setClients([])
+        // setClients([])
       }
     }, 300)
 
@@ -177,8 +209,12 @@ export function CreateDocumentDialog({ children }: { children: React.ReactNode }
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="document-number">Document Number</Label>
-              <Input id="document-number" placeholder="Auto-generated" disabled />
+              <Label htmlFor="document-number">{documentType === "invoice" ? "Invoice" : documentType === "debit-note" ? "Debit Note" : "Credit Note"} Number</Label>
+              <Input
+                id="document-number"
+                value={documentNumber}
+                onChange={(e) => setDocumentNumber(e.target.value)}
+                placeholder={`Enter ${documentType === "invoice" ? "Invoice" : documentType === "debit-note" ? "Debit Note" : "Credit Note"} Number`} />
             </div>
           </div>
 
@@ -208,7 +244,7 @@ export function CreateDocumentDialog({ children }: { children: React.ReactNode }
                   {selectedClient ? (
                     <div className="flex flex-col items-start">
                       <span className="font-medium">{selectedClient.name}</span>
-                      <span className="text-xs text-muted-foreground">{selectedClient.ownerName}</span>
+                      <span className="text-xs text-muted-foreground">{selectedClient.owner_name}</span>
                     </div>
                   ) : (
                     "Search and select client..."
@@ -218,39 +254,41 @@ export function CreateDocumentDialog({ children }: { children: React.ReactNode }
               </PopoverTrigger>
               <PopoverContent className="w-full p-0">
                 <Command>
-                  <CommandInput placeholder="Search clients..." value={clientSearch} onValueChange={setClientSearch} />
+                  <CommandInput placeholder="Search clients..." value={clientSearch}
+                    onValueChange={(val) => {
+                      setClientSearch(val)
+                      setClientOpen(true)
+                    }}
+                    disabled={!!selectedClient}
+                  />
                   <CommandList>
-                    {isSearching ? (
-                      <CommandEmpty>Searching...</CommandEmpty>
-                    ) : clients.length === 0 ? (
-                      <CommandEmpty>No clients found.</CommandEmpty>
-                    ) : (
-                      <CommandGroup>
-                        {clients.map((client) => (
-                          <CommandItem
-                            key={client.id}
-                            value={client.id}
-                            onSelect={() => {
-                              setSelectedClient(client)
-                              setClientOpen(false)
-                            }}
-                          >
-                            <Check
-                              className={cn(
-                                "mr-2 h-4 w-4",
-                                selectedClient?.id === client.id ? "opacity-100" : "opacity-0",
-                              )}
-                            />
-                            <div className="flex flex-col">
-                              <span className="font-medium">{client.name}</span>
-                              <span className="text-sm text-muted-foreground">{client.ownerName}</span>
-                              <span className="text-xs text-muted-foreground">GST: {client.gstNumber}</span>
-                              <span className="text-xs text-muted-foreground">{client.address}</span>
-                            </div>
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    )}
+                    <CommandEmpty>No clients found.</CommandEmpty>
+                    <CommandGroup>
+                      {clients.map((client) => (
+                        <CommandItem
+                          key={client.id}
+                          value={client.name.toLowerCase()} // important for fuzzy match
+                          onSelect={() => {
+                            setSelectedClient(client)
+                            setClientOpen(false)
+                            setClientSearch("")
+                          }}
+                        >
+                          <Check
+                            className={cn(
+                              "mr-2 h-4 w-4",
+                              selectedClient?.id === client.id ? "opacity-100" : "opacity-0",
+                            )}
+                          />
+                          <div className="flex flex-col">
+                            <span className="font-medium">{client.name}</span>
+                            <span className="text-sm text-muted-foreground">{client.owner_name}</span>
+                            <span className="text-xs text-muted-foreground">GST: {client.gst_number}</span>
+                            <span className="text-xs text-muted-foreground">{client.address}</span>
+                          </div>
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
                   </CommandList>
                 </Command>
               </PopoverContent>
@@ -427,7 +465,7 @@ export function CreateDocumentDialog({ children }: { children: React.ReactNode }
           <Button variant="outline" onClick={() => setOpen(false)}>
             Cancel
           </Button>
-          <Button onClick={() => setOpen(false)}>
+          <Button onClick={handleDocumentCreate}>
             Create{" "}
             {documentType === "invoice" ? "Invoice" : documentType === "debit-note" ? "Debit Note" : "Credit Note"}
           </Button>

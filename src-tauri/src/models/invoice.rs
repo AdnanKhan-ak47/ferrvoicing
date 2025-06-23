@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize, Debug)]
 pub struct InvoiceItem {
     pub description: String,
-    pub hsn: String, // Harmonized System Nomenclature code
+    pub hsn_code: String, // Harmonized System Nomenclature code
     pub quantity: f64,
     pub rate: f64,
     pub amount: f64,
@@ -18,7 +18,7 @@ pub struct AdditionalCharges{
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Invoice {
-    pub id: String,
+    pub id: Option<String>,
     pub issuer_name: String,
     pub issuer_address: String,
     pub issuer_gst_number: String,
@@ -63,7 +63,7 @@ impl Invoice {
         items: Vec<InvoiceItem>,
     ) -> Self {
         Self {
-            id,
+            id: Some(id),
             issuer_name,
             issuer_address,
             issuer_gst_number,

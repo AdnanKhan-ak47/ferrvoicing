@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Plus, Search, Filter, MoreHorizontal, Eye, Edit, Trash2 } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { CreateDocumentDialog } from "@/components/create-document-dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { invoke } from "@tauri-apps/api/core"
 
 const invoiceData = [
   {
@@ -165,7 +166,27 @@ function DocumentTable({
 export function InvoiceTabs() {
   const [activeTab, setActiveTab] = useState("invoices")
   const [searchTerm, setSearchTerm] = useState("")
-  const [searchBy, setSearchBy] = useState<"name" | "owner" | "gst">("name")
+  const [searchBy, setSearchBy] = useState<"recipient_name" | "invoice_number" | "recipient_gst_number">("recipient_name")
+
+
+  useEffect(() => {
+    const handleSearch = async () => {
+      const invoiceData = await invoke("search_invoices", {
+        filter: {
+          [searchBy]: searchTerm
+        }
+      }
+      )
+      console.log("This is the data", invoiceData);
+    }
+
+    const searchTimeout = setTimeout(async () => {
+      handleSearch()
+    }, 300)
+
+
+    return () => clearTimeout(searchTimeout)
+  }, [searchBy, searchTerm])
 
   const getCurrentDocumentType = () => {
     switch (activeTab) {
@@ -199,20 +220,20 @@ export function InvoiceTabs() {
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder={`Search ${activeTab} by ${searchBy === "name" ? "company name" : searchBy === "owner" ? "owner name" : "GST number"}...`}
+            placeholder={`Search ${activeTab} by ${searchBy === "recipient_name" ? "company name" : searchBy === "invoice_number" ? "Invoice Number" : "GST number"}...`}
             className="pl-8"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        <Select value={searchBy} onValueChange={(value: "name" | "owner" | "gst") => setSearchBy(value)}>
+        <Select value={searchBy} onValueChange={(value: "recipient_name" | "recipient_gst_number" | "invoice_number") => setSearchBy(value)}>
           <SelectTrigger className="w-[140px]">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="name">Name</SelectItem>
-            <SelectItem value="owner">Owner Name</SelectItem>
-            <SelectItem value="gst">GST Number</SelectItem>
+            <SelectItem value="recipient_name">Name</SelectItem>
+            <SelectItem value="recipient_gst_number">GST Number</SelectItem>
+            <SelectItem value="invoice_number">Invoice No.</SelectItem>
           </SelectContent>
         </Select>
         <Button variant="outline" size="sm">

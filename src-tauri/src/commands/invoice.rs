@@ -4,7 +4,7 @@ use tauri::{command, Error};
 
 use crate::{db::get_connection, models::invoice::Invoice};
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct InvoiceFilter {
     pub id: Option<String>,
     pub invoice_number: Option<String>,
@@ -20,7 +20,7 @@ pub fn create_invoice(invoice: Invoice) -> Result<String, String> {
     .map_err(|e| e.to_string())?;
     
     conn.execute(
-        "INSERT INTO invoices (
+        "INSERT INTO invoice (
         issuer_name,
         issuer_address,
         issuer_gst_number,
@@ -33,13 +33,14 @@ pub fn create_invoice(invoice: Invoice) -> Result<String, String> {
         recipient_email,
         items_json,
         invoice_date,
+        invoice_number,
         amount,
         cgst_percentage,
         sgst_percentage,
         igst_percentage,
         additional_charges_json,
         total_amount
-    ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18)",
+    ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19)",
         params![
             invoice.issuer_name,
             invoice.issuer_address,
@@ -53,6 +54,7 @@ pub fn create_invoice(invoice: Invoice) -> Result<String, String> {
             invoice.recipient_email,
             items_json, // This is the serialized JSON string of items
             invoice.invoice_date,
+            invoice.invoice_number,
             invoice.amount,
             invoice.cgst_percentage,
             invoice.sgst_percentage,
@@ -78,23 +80,27 @@ pub fn search_invoices(filter: InvoiceFilter) -> Result<Vec<Invoice>, String> {
 
     let mut count = 0;
 
+    println!("Searching invoices with filter: {:?}", &filter);
+    println!("Searching invoices with filter name: {:?}", &filter.recipient_name);
+
+
     if let Some(id) = filter.id {
-        query = "SELECT * FROM invoices WHERE id = ?1".into();
+        query = "SELECT * FROM invoice WHERE id = ?1".into();
         value = id.into();
         count += 1;
     }
     if let Some(inv_number) = filter.invoice_number {
-        query = "SELECT * FROM invoices WHERE invoice_number = ?1".into();
+        query = "SELECT * FROM invoice WHERE invoice_number = ?1".into();
         value = inv_number.into();
         count += 1;
     }
     if let Some(name) = filter.recipient_name {
-        query = "SELECT * FROM invoices WHERE recipient_name LIKE $1".into();
+        query = "SELECT * FROM invoice WHERE recipient_name LIKE $1".into();
         value = format!("%{}%", name).into();
         count += 1;
     }
     if let Some(gst_number) = filter.recipient_gst_number {
-        query = "SELECT * FROM invoices WHERE recipient_gst_number = ?1".into();
+        query = "SELECT * FROM invoice WHERE recipient_gst_number = ?1".into();
         value = gst_number.into();
         count += 1;
     }
@@ -143,6 +149,7 @@ pub fn search_invoices(filter: InvoiceFilter) -> Result<Vec<Invoice>, String> {
     ).map_err(|e| e.to_string())?;
 
     let invoices: Result<Vec<Invoice>, rusqlite::Error> = rows.collect();
+    println!("Invoices found: {:?}", invoices);
 
     invoices.map_err(|e| e.to_string())
 }
