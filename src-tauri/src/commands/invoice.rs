@@ -14,13 +14,10 @@ pub struct InvoiceFilter {
 
 #[command]
 pub fn create_invoice(invoice: Invoice) -> Result<String, String> {
-    // Here you would typically insert the invoice into a database
-    // For demonstration purposes, we'll just return a success message
     let conn = get_connection().map_err(|e| e.to_string())?;
     let items_json = serde_json::to_string(&invoice.items).map_err(|e| e.to_string())?;
     let additional_charges_json = serde_json::to_string(&invoice.additional_charges)
     .map_err(|e| e.to_string())?;
-    
     
     conn.execute(
         "INSERT INTO invoices (
