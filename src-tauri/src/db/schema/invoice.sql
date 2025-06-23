@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS invoice (
     recipient_gst_number TEXT NOT NULL,
     recipient_email TEXT,
     items_json TEXT NOT NULL,
+    amount REAL NOT NULL,
     cgst_percentage REAL,
     sgst_percentage REAL,
     igst_percentage REAL,
