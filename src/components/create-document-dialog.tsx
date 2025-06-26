@@ -52,6 +52,9 @@ export function CreateDocumentDialog({ children }: { children: React.ReactNode }
   const [lineItems, setLineItems] = useState<LineItem[]>([
     { description: "", hsnCode: "", quantity: 1, rate: 0, amount: 0 },
   ])
+  // Additional charges state
+  const [additionalCharges, setAdditionalCharges] = useState<{ description: string; amount: number }[]>([])
+
   const [documentNumber, setDocumentNumber] = useState<string>("")
 
   // Client search state
@@ -173,21 +176,37 @@ export function CreateDocumentDialog({ children }: { children: React.ReactNode }
     setLineItems(updated)
   }
 
+  const addAdditionalCharge = () => {
+    setAdditionalCharges([...additionalCharges, { description: "", amount: 0 }])
+  }
+
+  const removeAdditionalCharge = (index: number) => {
+    setAdditionalCharges(additionalCharges.filter((_, i) => i !== index))
+  }
+
+  const updateAdditionalCharge = (index: number, field: "description" | "amount", value: string | number) => {
+    const updated = [...additionalCharges]
+    updated[index] = { ...updated[index], [field]: value }
+    setAdditionalCharges(updated)
+  }
+
   const subtotal = lineItems.reduce((sum, item) => sum + item.amount, 0)
+  const additionalChargesTotal = additionalCharges.reduce((sum, charge) => sum + charge.amount, 0)
+  const subtotalWithCharges = subtotal + additionalChargesTotal
 
   // Calculate taxes based on type
-  const cgst = taxType === "intrastate" ? (subtotal * cgstRate) / 100 : 0
-  const sgst = taxType === "intrastate" ? (subtotal * sgstRate) / 100 : 0
-  const igst = taxType === "interstate" ? (subtotal * igstRate) / 100 : 0
+  const cgst = taxType === "intrastate" ? (subtotalWithCharges * cgstRate) / 100 : 0
+  const sgst = taxType === "intrastate" ? (subtotalWithCharges * sgstRate) / 100 : 0
+  const igst = taxType === "interstate" ? (subtotalWithCharges * igstRate) / 100 : 0
 
   const totalTax = cgst + sgst + igst
-  const totalBeforeRounding = subtotal + totalTax
+  const totalBeforeRounding = subtotalWithCharges + totalTax
   const total = Math.round(totalBeforeRounding) // Round to nearest integer
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-full max-w-[50vw] sm:max-w-[50vw] p-6 rounded-xl shadow-xl">
         <DialogHeader>
           <DialogTitle>Create New Document</DialogTitle>
           <DialogDescription>Create a new invoice, debit note, or credit note</DialogDescription>
@@ -364,6 +383,67 @@ export function CreateDocumentDialog({ children }: { children: React.ReactNode }
                 </div>
               ))}
             </div>
+          </div>
+
+          {additionalCharges.length > 0 && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <Label>Additional Charges</Label>
+                <Button type="button" variant="outline" size="sm" onClick={addAdditionalCharge}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Charge
+                </Button>
+              </div>
+
+              {/* Column Headers */}
+              <div className="grid grid-cols-12 gap-2 text-sm font-medium text-muted-foreground">
+                <div className="col-span-8">Description</div>
+                <div className="col-span-3">Amount</div>
+                <div className="col-span-1">Action</div>
+              </div>
+
+              <div className="space-y-3">
+                {additionalCharges.map((charge, index) => (
+                  <div key={index} className="grid grid-cols-12 gap-2 items-center">
+                    <div className="col-span-8">
+                      <Input
+                        placeholder="Additional charge description"
+                        value={charge.description}
+                        onChange={(e) => updateAdditionalCharge(index, "description", e.target.value)}
+                      />
+                    </div>
+                    <div className="col-span-3">
+                      <Input
+                        type="number"
+                        placeholder="Amount"
+                        value={charge.amount}
+                        onChange={(e) =>
+                          updateAdditionalCharge(index, "amount", Number.parseFloat(e.target.value) || 0)
+                        }
+                      />
+                    </div>
+                    <div className="col-span-1">
+                      <Button type="button" variant="outline" size="sm" onClick={() => removeAdditionalCharge(index)}>
+                        <Minus className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-start">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={addAdditionalCharge}
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Add Additional Charge
+            </Button>
           </div>
 
           <Separator />

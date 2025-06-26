@@ -1,6 +1,6 @@
 use rusqlite::params;
 use tauri::command;
-
+use uuid::Uuid;
 use crate::{db::get_connection, models::company::Company};
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
@@ -17,8 +17,9 @@ pub fn add_company(company: Company) -> Result<String, String> {
 
     // Insert the company into the database
     conn.execute(
-        "INSERT INTO company (name, address, pincode, gst_number, phone, email, owner_name) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        "INSERT INTO company (id, name, address, pincode, gst_number, phone, email, owner_name) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
         params![
+            Uuid::new_v4().to_string(),
             company.name,
             company.address,
             company.pincode,
@@ -74,7 +75,7 @@ pub fn search_company(filter: CompanyFilter) -> Result<Vec<Company>, String> {
         .query_map(params![value], |row| {
 
             Ok(Company {
-                id: row.get("id").ok().map(|id: i64| id.to_string()),
+                id: row.get("id")?,
                 name: row.get("name")?,
                 owner_name: row.get("owner_name")?,
                 address: row.get("address")?,

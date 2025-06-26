@@ -1,7 +1,7 @@
 use rusqlite::params;
 use serde::Deserialize;
 use tauri::{command, Error};
-
+use uuid::Uuid;
 use crate::{db::get_connection, models::invoice::Invoice};
 
 #[derive(Deserialize, Debug)]
@@ -21,6 +21,7 @@ pub fn create_invoice(invoice: Invoice) -> Result<String, String> {
     
     conn.execute(
         "INSERT INTO invoice (
+        id,
         issuer_name,
         issuer_address,
         issuer_gst_number,
@@ -40,8 +41,9 @@ pub fn create_invoice(invoice: Invoice) -> Result<String, String> {
         igst_percentage,
         additional_charges_json,
         total_amount
-    ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19)",
+    ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20)",
         params![
+            Uuid::new_v4().to_string(), // Generate a new UUID for the invoice ID
             invoice.issuer_name,
             invoice.issuer_address,
             invoice.issuer_gst_number,

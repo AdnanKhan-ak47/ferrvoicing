@@ -24,4 +24,5 @@ log = "0.4"
 tauri = { version = "2.5.0", features = [] }
 tauri-plugin-log = "2.0.0-rc"
 rusqlite = { version = "0.36", features = ["bundled"] }
+uuid = {version = "1.17.0", features = ["v4"] }
 

@@ -102,30 +102,22 @@ function DocumentTable({
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead>Document ID</TableHead>
-          <TableHead>Client</TableHead>
-          <TableHead>Owner</TableHead>
-          <TableHead>GST Number</TableHead>
-          <TableHead>Amount</TableHead>
-          <TableHead>Status</TableHead>
           <TableHead>Date</TableHead>
+          <TableHead>Client</TableHead>
+          <TableHead>GST Number</TableHead>
+          <TableHead>Invoice No.</TableHead>
+          <TableHead>Amount</TableHead>
           <TableHead className="w-[50px]"></TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
         {filteredData.map((item) => (
           <TableRow key={item.id}>
-            <TableCell className="font-medium">{item.id}</TableCell>
-            <TableCell>{item.client}</TableCell>
-            <TableCell>{item.owner}</TableCell>
-            <TableCell className="font-mono text-sm">{item.gst}</TableCell>
-            <TableCell>{item.amount}</TableCell>
-            <TableCell>
-              <Badge variant={item.status === "paid" ? "default" : item.status === "sent" ? "secondary" : "outline"}>
-                {item.status}
-              </Badge>
-            </TableCell>
-            <TableCell>{item.date}</TableCell>
+            <TableCell>{item.invoice_date}</TableCell>
+            <TableCell>{item.recipient_name}</TableCell>
+            <TableCell className="font-mono text-sm">{item.recipient_gst_number}</TableCell>
+            <TableCell>{item.invoice_number}</TableCell>
+            <TableCell>{item.total}</TableCell>
             <TableCell>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -167,6 +159,7 @@ export function InvoiceTabs() {
   const [activeTab, setActiveTab] = useState("invoices")
   const [searchTerm, setSearchTerm] = useState("")
   const [searchBy, setSearchBy] = useState<"recipient_name" | "invoice_number" | "recipient_gst_number">("recipient_name")
+  const [documentData, setDocumentData] = useState([])
 
 
   useEffect(() => {
@@ -178,6 +171,7 @@ export function InvoiceTabs() {
       }
       )
       console.log("This is the data", invoiceData);
+      setDocumentData(invoiceData);
     }
 
     const searchTimeout = setTimeout(async () => {
@@ -256,7 +250,7 @@ export function InvoiceTabs() {
               <CardDescription>Manage and track your invoices</CardDescription>
             </CardHeader>
             <CardContent>
-              <DocumentTable data={invoiceData} type="invoice" searchTerm={searchTerm} searchBy={searchBy} />
+              <DocumentTable data={documentData} type="invoice" searchTerm={searchTerm} searchBy={searchBy} />
             </CardContent>
           </Card>
         </TabsContent>
