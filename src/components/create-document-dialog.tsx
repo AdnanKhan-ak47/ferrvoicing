@@ -206,7 +206,7 @@ export function CreateDocumentDialog({ children }: { children: React.ReactNode }
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent className="w-full max-w-[50vw] sm:max-w-[50vw] p-6 rounded-xl shadow-xl">
+      <DialogContent className="w-full max-w-[50vw] sm:max-w-[50vw] p-6 rounded-xl shadow-xl max-h-[70vh] overflow-y-scroll">
         <DialogHeader>
           <DialogTitle>Create New Document</DialogTitle>
           <DialogDescription>Create a new invoice, debit note, or credit note</DialogDescription>

@@ -127,8 +127,10 @@ function DocumentTable({
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem>
-                    <Eye className="mr-2 h-4 w-4" />
-                    View
+                    <a href={`/invoice/${item.id}`} className="flex items-center w-full">
+                      <Eye className="mr-2 h-4 w-4" />
+                      View
+                    </a>
                   </DropdownMenuItem>
                   <DropdownMenuItem>
                     <Edit className="mr-2 h-4 w-4" />
