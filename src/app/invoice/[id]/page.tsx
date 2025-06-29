@@ -10,24 +10,25 @@ import {
 } from "@/components/ui/breadcrumb"
 import { Separator } from "@/components/ui/separator"
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
+import { invoke } from "@tauri-apps/api/core"
 
 // Mock invoice data - replace with actual data fetching
 const mockInvoiceData = {
   id: "GST/2232/2023-24",
   date: "2023-10-04",
   issuer: {
-    name: "V K ENTERPRISES",
-    address: " NEW DELHI-110063",
-    phone: "324217307",
-    gstNumber: "07AASPY3922D1ZC",
+    name: "Qasmi Traders",
+    address: " Room No. 1, Sultan Mukadam Chawl, New Hall Road, Kurla (W)\nMumbai, Maharashtra, 400070",
+    phone: "1231231230",
+    gstNumber: "27SFGPK3092R1ZD",
     email: "test@gmail.com",
-    pan: "A23958yrsdfj",
+    pan: "KHJPK3092R",
   },
   recipient: {
-    name: "QASMI TRADERS",
+    name: "R J Footwear",
     ownerName: "Owner Name",
-    address: "KURLA\nMaharashtra, 400070",
-    phone: "+91 98765 43210",
+    address: "Yusuf Manzil, pattharwala building no. 11, Shop no. 11, Baban Gali, Sankli Street, Cross Lane No. 5\nMumbai, Maharashtra, 400003",
+    phone: "+91 12312312310",
     gstNumber: "27lsdjfSDF23tD",
     email: "qasmi@traders.com",
     pan: "AHSHPK32492Q",
@@ -64,8 +65,8 @@ const mockInvoiceData = {
   },
   placeOfSupply: "Maharashtra (27)",
   reverseCharge: "N",
-  irn: "735418686de5871a1b483d6881d64f91d4c789fa54169529da2bdc3b6130c2ea",
-  ackNo: "172313581494095",
+  irn: "735418686de5871a1b483d6881f91d4c789fa54169529da2bdc3b6130c2ea",
+  ackNo: "1723135814095",
   ackDate: "04-10-2023",
   bankDetails: {
     bankName: "PUNJAB MAHINDRA BANK",
@@ -103,12 +104,4 @@ export default function InvoicePage({ params }: { params: { id: string } }) {
       </SidebarInset>
     </SidebarProvider>
   )
-}
-
-export async function generateStaticParams() {
-  return [
-    { id: "GST/2232/2023-24" },
-    { id: "1c25f2bd-1437-476d-a20e-ca8546531cf5" }, // ← explicitly add this
-    // Add any more as needed
-  ]
 }

@@ -2,7 +2,7 @@ mod user;
 
 use tauri::command;
 
-use crate::{commands::{company::{add_company, search_company}, invoice::{create_invoice, search_invoices}}, db::init_db};
+use crate::{commands::{company::{add_company, search_company}, invoice::{create_invoice, get_invoice_ids, search_invoices}}, db::init_db};
 pub mod db;
 pub mod models;
 pub mod commands;
@@ -26,7 +26,8 @@ pub fn run() {
             add_company,
             search_company,
             search_invoices,
-            create_invoice
+            create_invoice,
+            get_invoice_ids
             ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

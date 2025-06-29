@@ -145,7 +145,7 @@ export function InvoicePrint({ invoiceData }: InvoicePrintProps) {
       </div>
 
       {/* Invoice Container */}
-      <div className="max-w-4xl mx-auto bg-white print:shadow-none print:max-w-none">
+      <div id="invoice-print" className="max-w-4xl mx-auto bg-white print:shadow-none print:max-w-none">
         <div className="border box-border border-black text-xs leading-tight text-black">
 
           <div className="text-center border box-border p-2 border-black">
@@ -273,7 +273,7 @@ export function InvoicePrint({ invoiceData }: InvoicePrintProps) {
 
               {/* Subtotal Row */}
               <tr>
-                <td className="border border-black p-1" colSpan={3}></td>
+                <td className="p-1" colSpan={3}></td>
                 <td className="border border-black p-1 text-left text-black" colSpan={2}>
                   Net Amount:
                 </td>
@@ -285,7 +285,7 @@ export function InvoicePrint({ invoiceData }: InvoicePrintProps) {
               {/* Tax Rows */}
               {invoiceData.taxType === "interstate" && igst > 0 && (
                 <tr>
-                  <td className="border border-black p-1" colSpan={3}></td>
+                  <td className="p-1" colSpan={3}></td>
                   <td className="border border-black p-1 text-left text-black" colSpan={2}>
                     Add : IGST @ {invoiceData.igstRate}.00 %
                   </td>
@@ -299,7 +299,7 @@ export function InvoicePrint({ invoiceData }: InvoicePrintProps) {
                 <>
                   {cgst > 0 && (
                     <tr>
-                      <td className="border border-black p-1" colSpan={3}></td>
+                      <td className="p-1" colSpan={3}></td>
                       <td className="border border-black p-1 text-left text-black" colSpan={2}>
                         Add : CGST @ {invoiceData.cgstRate}.00 %
                       </td>
@@ -357,7 +357,7 @@ export function InvoicePrint({ invoiceData }: InvoicePrintProps) {
           </div>
 
           {/* Bank Details and Terms */}
-          <div className="grid grid-cols-2 gap-4 text-xs mb-2">
+          <div className="grid grid-cols-2 gap-4 text-xs border-t border-b border-black p-2">
             <div>
               {invoiceData.bankDetails && (
                 <div>
@@ -372,35 +372,34 @@ export function InvoicePrint({ invoiceData }: InvoicePrintProps) {
               )}
             </div>
 
-            <div>
-              <div className="font-semibold text-black">Terms & Conditions</div>
-              <div className="text-xs leading-tight">
-                <div className="text-black">1. Goods once sold will not be taken back.</div>
-                <div className="text-black">
-                  2. Interest @ 18% p.a. will be charged if the payment is not made within 2 months
-                </div>
-                <div className="text-black">3. Subject to 'Delhi' Jurisdiction only.</div>
-              </div>
-            </div>
           </div>
 
           {/* Footer */}
-          <div className="grid grid-cols-3 gap-4 text-xs">
-            <div>
-              <div className="font-semibold text-black">E-Invoice QR Code</div>
-              <div className="h-16 border border-black flex items-center justify-center text-black">[QR Code]</div>
+          <div className="grid grid-cols-2 text-xs box-border">
+            <div className="border-r border-black box-border p-2">
+              <div className="font-semibold text-black">Terms & Conditions</div>
+              <div className="text-xs leading-tight">
+                <div className="text-black">1. Goods once sold will not be taken back.</div>
+                <div className="text-black">2. Payment is respectfully requested within 15 days from the date of invoice.</div>
+                <div className="text-black">3. Goods are dispatched at the buyer’s risk. The seller is not responsible for any damage during transit unless agreed in writing.</div>
+                <div className="text-black">4. All disputes, if any, shall be subject to the jurisdiction of Mumbai, Maharashtra.</div>
+                <div className="text-black">5. Claims for shortages or damages must be reported within 3 days of delivery. Returns are accepted only with prior approval and intact packaging.</div>
+                <div className="text-black">6. Goods remain the property of the seller until full payment is received.</div>
+                <div className="text-black">E.& O.E.</div>
+              </div>
             </div>
 
-            <div>
-              <div className="font-semibold text-black">Receiver's Signature :</div>
-              <div className="h-16"></div>
-              <div className="text-black">E.& O.E.</div>
-            </div>
+            <div className="grid grid-cols-1 box-border">
+              <div className="border-b border-black box-border p-2">
+                <div className="font-semibold text-black">Receiver's Signature :</div>
+                <div className="h-16"></div>
+              </div>
 
-            <div className="text-right">
-              <div className="font-semibold text-black">For {invoiceData.issuer.name}</div>
-              <div className="h-16"></div>
-              <div className="font-semibold text-black">Authorised Signatory</div>
+              <div className="text-right box-border p-2">
+                <div className="font-semibold text-black">For {invoiceData.issuer.name}</div>
+                <div className="h-16"></div>
+                <div className="font-semibold text-black">Authorised Signatory</div>
+              </div>
             </div>
           </div>
         </div>

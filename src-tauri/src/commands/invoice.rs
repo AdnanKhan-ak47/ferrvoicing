@@ -155,3 +155,16 @@ pub fn search_invoices(filter: InvoiceFilter) -> Result<Vec<Invoice>, String> {
 
     invoices.map_err(|e| e.to_string())
 }
+
+#[command]
+pub fn get_invoice_ids() -> Result<Vec<String>, String> {
+    let conn = get_connection().map_err(|e| e.to_string())?;
+    let mut stmt = conn.prepare("SELECT id FROM invoice").map_err(|e| e.to_string())?;
+    
+    let invoice_ids = stmt.query_map([], |row| row.get(0))
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<String>, rusqlite::Error>>()
+        .map_err(|e| e.to_string())?;
+
+    Ok(invoice_ids)
+}
