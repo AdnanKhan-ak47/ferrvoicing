@@ -68,14 +68,76 @@ interface InvoicePrintProps {
 }
 
 export function InvoicePrint({ invoiceData }: InvoicePrintProps) {
-  const handlePrint = () => {
-    window.print()
+
+  const handleDownloadPDF = async () => {
+    const html2pdf = (await import("html2pdf.js")).default;
+
+    const element = document.getElementById("invoice-print")
+    if (!element) return
+
+    const opt = {
+      margin: 0,
+      filename: `invoice-${Date.now()}.pdf`,
+      image: { type: "jpeg", quality: 0.98 },
+      html2canvas: { scale: 2 },
+      jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+    }
+
+    html2pdf().set(opt).from(element).save()
   }
 
-  const handleDownloadPDF = () => {
-    window.print()
-    console.log("PDF download functionality to be implemented")
-  }
+  const handlePrintInNewWindow = () => {
+    const invoice = document.getElementById("invoice-print");
+    if (!invoice) return;
+
+    const printWindow = window.open("", "PRINT", "width=800,height=1000");
+    if (!printWindow) return;
+
+    const styleSheets = [...document.styleSheets]
+      .map((styleSheet) => {
+        try {
+          if (styleSheet.href) {
+            return `<link rel="stylesheet" href="${styleSheet.href}">`;
+          }
+          return "";
+        } catch (e) {
+          return "";
+        }
+      })
+      .join("");
+
+    printWindow.document.write(`
+    <html>
+      <head>
+        <title>Invoice</title>
+        ${styleSheets}
+        <style>
+          @media print {
+            body {
+              margin: 0;
+              padding: 0;
+              color: black;
+              background: white;
+            }
+          }
+        </style>
+      </head>
+      <body>
+        <div>${invoice.innerHTML}</div>
+      </body>
+    </html>
+  `);
+
+    printWindow.document.close();
+    printWindow.focus();
+
+    setTimeout(() => {
+      printWindow.print();
+      printWindow.close();
+    }, 500);
+  };
+
+
 
   // Calculate totals
   const itemsSubtotal = invoiceData.items.reduce((sum, item) => sum + item.amount, 0)
@@ -134,7 +196,7 @@ export function InvoicePrint({ invoiceData }: InvoicePrintProps) {
     <div className="min-h-screen bg-gray-50 print:bg-white print:min-h-0">
       {/* Action Buttons - Hidden when printing */}
       <div className="flex justify-end gap-2 mb-6 print:hidden">
-        <Button onClick={handlePrint} variant="outline">
+        <Button onClick={handlePrintInNewWindow}>
           <Printer className="mr-2 h-4 w-4" />
           Print Invoice
         </Button>
