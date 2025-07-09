@@ -1,15 +1,15 @@
-mod user;
-
 use tauri::command;
 
-use crate::{commands::{company::{add_company, search_company}, invoice::{create_invoice, get_invoice_ids, search_invoices}}, db::init_db};
+use crate::{commands::{company::{add_company, search_company}, invoice::{create_invoice, get_invoice_ids, search_invoices}}, db::init_db, utils::get_app_data_path};
 pub mod db;
 pub mod models;
 pub mod commands;
+pub mod utils;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_shell::init())
         .setup(|app| {
             if cfg!(debug_assertions) {
                 app.handle().plugin(
@@ -18,6 +18,7 @@ pub fn run() {
                         .build(),
                 )?;
             }
+            crate::utils::init_app_data_path(&app.handle())?;
             init_db().expect("Failed to initialize the database");
             Ok(())
         })
@@ -31,6 +32,7 @@ pub fn run() {
             ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+
 }
 
 #[command]

@@ -2,7 +2,7 @@ use rusqlite::params;
 use serde::Deserialize;
 use tauri::{command, Error};
 use uuid::Uuid;
-use crate::{db::get_connection, models::invoice::Invoice};
+use crate::{db::get_connection, models::invoice::Invoice, utils::get_app_data_path};
 
 #[derive(Deserialize, Debug)]
 pub struct InvoiceFilter {
@@ -152,6 +152,9 @@ pub fn search_invoices(filter: InvoiceFilter) -> Result<Vec<Invoice>, String> {
 
     let invoices: Result<Vec<Invoice>, rusqlite::Error> = rows.collect();
     println!("Invoices found: {:?}", invoices);
+    let test_path = get_app_data_path();
+    println!("App data path: {:?}", test_path);
+
 
     invoices.map_err(|e| e.to_string())
 }
