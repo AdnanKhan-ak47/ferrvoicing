@@ -1,6 +1,6 @@
 use tauri::command;
 
-use crate::{commands::{company::{add_company, search_company}, invoice::{create_invoice, get_invoice_ids, search_invoices}}, db::init_db, utils::get_app_data_path};
+use crate::{commands::{company::{add_company, search_company}, invoice::{create_invoice, get_invoice_ids, search_invoices}}, db::{init_db, init_global_db}, utils::get_app_data_path};
 pub mod db;
 pub mod models;
 pub mod commands;
@@ -19,6 +19,7 @@ pub fn run() {
                 )?;
             }
             crate::utils::init_app_data_path(&app.handle())?;
+            init_global_db().expect("Failed to initialze app's global db");
             init_db().expect("Failed to initialize the database");
             Ok(())
         })

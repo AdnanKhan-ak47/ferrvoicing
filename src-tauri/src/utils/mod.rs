@@ -4,6 +4,8 @@ use std::path::PathBuf;
 use sha2::{Sha256, Digest};
 use tauri::{AppHandle, Manager};
 
+use crate::models::user::UserSession;
+
 static APP_DATA_PATH: OnceCell<PathBuf> = OnceCell::new();
 
 /// Call this ONCE at startup (e.g., in `setup()`)
@@ -28,6 +30,26 @@ pub fn get_app_data_path() -> Result<PathBuf, String> {
         .cloned()
         .ok_or_else(|| "App data path not initialized".to_string())
 }
+
+pub fn get_session_token() -> Result<String, String> {
+    let path = get_app_data_path()?.join(".session");
+
+    fs::read_to_string(path).map_err(|e| e.to_string())
+}
+
+pub fn get_current_user_hash() -> Result<String, String> {
+    let json_string = get_session_token()?;
+    let token: UserSession = serde_json::from_str(&json_string).map_err(|e| e.to_string())?;
+    Ok(token.user_hash)
+}
+
+pub fn get_current_user_db_path() -> Result<PathBuf, String> {
+    let app_data_path = get_app_data_path()?;
+    let user_hash = get_current_user_hash()?;
+    let db_path = app_data_path.join("users").join(user_hash).join("user_data.db");
+    Ok(db_path)
+}
+
 
 pub fn hash_email(email: &str) -> String {
     let mut hasher = Sha256::new();
