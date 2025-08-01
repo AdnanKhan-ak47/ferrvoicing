@@ -8,6 +8,8 @@ use std::fs;
 use std::{fs::File, io, path::PathBuf};
 use uuid::Uuid;
 
+use crate::db::init_db;
+use crate::utils::hash_email;
 use crate::{models::user::UserSession, utils::get_app_data_path};
 
 #[tauri::command]
@@ -15,6 +17,12 @@ pub fn signup_user(name: String, email: String, password: String) -> Result<Stri
     let app_data_path = get_app_data_path()?;
     let db_path = app_data_path.join("app_data.db");
     let conn = Connection::open(db_path).map_err(|e| e.to_string())?;
+
+    let user_hash = hash_email(&email);
+    let user_dir = app_data_path.join("users").join(&user_hash);
+
+    // 1. Create the user directory
+    std::fs::create_dir_all(&user_dir).map_err(|e| e.to_string())?;
 
     let password_hash = format!("{:x}", Sha256::digest(password.as_bytes()));
     let created_at = Utc::now().to_rfc3339();
@@ -26,7 +34,7 @@ pub fn signup_user(name: String, email: String, password: String) -> Result<Stri
         email,
         password_hash,
         created_at
-    ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20)",
+    ) VALUES (?1, ?2, ?3, ?4, ?5)",
         params![
             Uuid::new_v4().to_string(), // Generate a new UUID for the invoice ID
             name,
@@ -44,19 +52,31 @@ pub fn signup_user(name: String, email: String, password: String) -> Result<Stri
 pub fn login(email: String, password: String) -> Result<String, String> {
     let app_data_path = get_app_data_path()?;
     let db_path = app_data_path.join("app_data.db");
-    let conn = Connection::open(db_path).map_err(|e| e.to_string())?;
+    let conn = Connection::open(&db_path).map_err(|e| e.to_string())?;
 
     let stored_hash: String = conn
         .query_row(
             "SELECT password_hash from users WHERE email = $1",
-            params![email],
+            params![&email],
             |row| row.get(0),
         )
         .map_err(|_| "Invalid email or password.".to_string())?;
 
     let password_hash = format!("{:x}", Sha256::digest(password.as_bytes()));
 
+    let user_session = UserSession {
+        user_email: email.clone(),
+        user_hash: hash_email(&email),
+    };
+
     if stored_hash == password_hash {
+        // Initializing User Specific DB after logging in
+        // Ensure parent directories exist
+        let _session_res = store_session(user_session).map_err(|e| e.to_string())?;
+        if let Some(parent) = db_path.parent() {
+            std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+        }
+        init_db().expect("Failed to initialize the database");
         Ok(format!("User Logged In!"))
     } else {
         Err("Invalid email or password.".to_string())
@@ -70,6 +90,33 @@ pub fn store_session(user_session: UserSession) -> Result<(), io::Error> {
     let session_json = json!(user_session).to_string();
     fs::write(session_path, session_json)?;
     Ok(())
+}
+
+#[tauri::command]
+pub fn logout() -> Result<String, String> {
+    let session_path = get_app_data_path()?.join(".session");
+
+    if session_path.exists() {
+        fs::remove_file(&session_path).map_err(|e| e.to_string())?;
+        Ok("Logged out successfully.".to_string())
+    } else {
+        Ok("No active session.".to_string()) // already logged out
+    }
+}
+
+#[tauri::command]
+pub fn is_logged_in() -> Result<bool, String> {
+    let session_path = get_app_data_path()?.join(".session");
+
+    if !session_path.exists() {
+        return Ok(false);
+    }
+
+    let content = fs::read_to_string(session_path).map_err(|e| e.to_string())?;
+
+    // Try to parse the JSON into a struct
+    let session: Result<UserSession, _> = serde_json::from_str(&content);
+    Ok(session.is_ok()) // true if parsed successfully
 }
 
 // Want to implement Google OAuth2 authentication flow with data backup in future, below code is not in use anywhere yet

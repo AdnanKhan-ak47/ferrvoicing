@@ -1,6 +1,6 @@
 use tauri::command;
 
-use crate::{commands::{company::{add_company, search_company}, invoice::{create_invoice, get_invoice_ids, search_invoices}}, db::{init_db, init_global_db}, utils::get_app_data_path};
+use crate::{commands::{company::{add_company, search_company}, invoice::{create_invoice, get_invoice_ids, search_invoices}, user::{is_logged_in, login, logout, signup_user}}, db::{init_db, init_global_db}, utils::get_app_data_path};
 pub mod db;
 pub mod models;
 pub mod commands;
@@ -20,7 +20,8 @@ pub fn run() {
             }
             crate::utils::init_app_data_path(&app.handle())?;
             init_global_db().expect("Failed to initialze app's global db");
-            init_db().expect("Failed to initialize the database");
+            // Should initilize when the user session file acutally exists
+            // init_db().expect("Failed to initialize the database");
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -29,7 +30,11 @@ pub fn run() {
             search_company,
             search_invoices,
             create_invoice,
-            get_invoice_ids
+            get_invoice_ids,
+            signup_user,
+            login,
+            logout,
+            is_logged_in
             ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
