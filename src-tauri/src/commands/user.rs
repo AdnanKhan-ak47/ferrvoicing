@@ -8,12 +8,13 @@ use std::fs;
 use std::{fs::File, io, path::PathBuf};
 use uuid::Uuid;
 
-use crate::db::init_db;
-use crate::utils::hash_email;
+use crate::db::{get_connection, init_db};
+use crate::models::user::Profile;
+use crate::utils::{get_current_user_hash, hash_email};
 use crate::{models::user::UserSession, utils::get_app_data_path};
 
 #[tauri::command]
-pub fn signup_user(name: String, email: String, password: String) -> Result<String, String> {
+pub fn signup_user(email: String, password: String) -> Result<String, String> {
     let app_data_path = get_app_data_path()?;
     let db_path = app_data_path.join("app_data.db");
     let conn = Connection::open(db_path).map_err(|e| e.to_string())?;
@@ -30,14 +31,12 @@ pub fn signup_user(name: String, email: String, password: String) -> Result<Stri
     conn.execute(
         "INSERT INTO users (
         id,
-        name,
         email,
         password_hash,
         created_at
-    ) VALUES (?1, ?2, ?3, ?4, ?5)",
+    ) VALUES (?1, ?2, ?3, ?4)",
         params![
             Uuid::new_v4().to_string(), // Generate a new UUID for the invoice ID
-            name,
             email,
             password_hash,
             created_at
@@ -54,25 +53,26 @@ pub fn login(email: String, password: String) -> Result<String, String> {
     let db_path = app_data_path.join("app_data.db");
     let conn = Connection::open(&db_path).map_err(|e| e.to_string())?;
 
-    let stored_hash: String = conn
+    let (stored_hash, is_onboarded): (String, bool) = conn
         .query_row(
-            "SELECT password_hash from users WHERE email = $1",
+            "SELECT password_hash, is_onboarded FROM users WHERE email = ?1",
             params![&email],
-            |row| row.get(0),
+            |row| Ok((row.get(0)?, row.get(1)?)),
         )
         .map_err(|_| "Invalid email or password.".to_string())?;
 
     let password_hash = format!("{:x}", Sha256::digest(password.as_bytes()));
 
-    let user_session = UserSession {
-        user_email: email.clone(),
-        user_hash: hash_email(&email),
-    };
-
     if stored_hash == password_hash {
+        let user_session = UserSession {
+            user_email: email.clone(),
+            user_hash: hash_email(&email),
+            is_onboarded,
+        };
+
         // Initializing User Specific DB after logging in
         // Ensure parent directories exist
-        let _session_res = store_session(user_session).map_err(|e| e.to_string())?;
+        store_session(user_session).map_err(|e| e.to_string())?;
         if let Some(parent) = db_path.parent() {
             std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
         }
@@ -90,6 +90,20 @@ pub fn store_session(user_session: UserSession) -> Result<(), io::Error> {
     let session_json = json!(user_session).to_string();
     fs::write(session_path, session_json)?;
     Ok(())
+}
+
+// Load Session
+pub fn load_session() -> Result<UserSession, String> {
+    let path = get_app_data_path().map_err(|e| e.to_string())?;
+    let session_path = path.join(".session");
+
+    let data =
+        fs::read_to_string(&session_path).map_err(|e| format!("Failed to read session: {}", e))?;
+
+    let session: UserSession =
+        serde_json::from_str(&data).map_err(|e| format!("Invalid session JSON: {}", e))?;
+
+    Ok(session)
 }
 
 #[tauri::command]
@@ -118,6 +132,138 @@ pub fn is_logged_in() -> Result<bool, String> {
     let session: Result<UserSession, _> = serde_json::from_str(&content);
     Ok(session.is_ok()) // true if parsed successfully
 }
+
+#[tauri::command]
+pub fn is_onboarded() -> Result<bool, String> {
+    let session_path = get_app_data_path()?.join(".session");
+
+    if !session_path.exists() {
+        return Ok(false);
+    }
+
+    let content = fs::read_to_string(session_path).map_err(|e| e.to_string())?;
+
+    // Try to parse the JSON into a struct
+    let session: UserSession = serde_json::from_str(&content).map_err(|e| e.to_string())?;
+    
+    Ok(session.is_onboarded) // true if parsed successfully
+}
+
+#[tauri::command]
+pub fn complete_onboarding(profile_info: Profile) -> Result<String, String> {
+    // 1. Open global app_data.db (auth DB)
+    let app_data_path = get_app_data_path()?;
+    let global_db_path = app_data_path.join("app_data.db");
+    let global_conn = Connection::open(&global_db_path).map_err(|e| e.to_string())?;
+
+    let current_user_session = load_session()?;
+
+
+    // 2. Open user-specific DB
+    let user_conn = get_connection().map_err(|e| e.to_string())?;
+
+    user_conn
+        .execute(
+            "CREATE TABLE IF NOT EXISTS profile (
+                id TEXT PRIMARY KEY,
+                company_name TEXT NOT NULL,
+                gst_number TEXT,
+                address TEXT,
+                city TEXT,
+                state TEXT,
+                pincode TEXT,
+                phone TEXT,
+                email TEXT,
+                bank_name TEXT,
+                bank_branch TEXT,
+                bank_ifsc TEXT,
+                bank_account_number TEXT,
+                invoice_prefix TEXT,
+                next_invoice_number REAL,
+                updated_at TEXT NOT NULL
+            )",
+            [],
+        )
+        .map_err(|e| e.to_string())?;
+
+    // Insert or update profile row
+    let now = Utc::now().to_rfc3339();
+    user_conn
+        .execute(
+            "INSERT INTO profile (
+            id,
+            company_name, 
+            gst_number, 
+            address,
+            city,
+            state,
+            pincode,
+            phone,
+            email,
+            bank_name,
+            bank_branch,
+            bank_ifsc,
+            bank_account_number,
+            invoice_prefix, 
+            next_invoice_number, 
+            updated_at
+            )
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)
+             ON CONFLICT(id) DO UPDATE SET
+                company_name = excluded.company_name,
+                gst_number = excluded.gst_number,
+                address = excluded.address,
+                city = excluded.city,
+                state = excluded.state,
+                pincode = excluded.pincode,
+                phone = excluded.phone,
+                email = excluded.email,
+                bank_name = excluded.bank_name,
+                bank_branch = excluded.bank_branch,
+                bank_ifsc = excluded.bank_ifsc,
+                bank_account_number = excluded.bank_account_number,
+                invoice_prefix = excluded.invoice_prefix,
+                next_invoice_number = excluded.next_invoice_number,
+                updated_at = excluded.updated_at",
+            params![
+                "profile", // static ID since only one profile per user
+                profile_info.company_name,
+                profile_info.gst_number, 
+                profile_info.address,
+                profile_info.city,
+                profile_info.state,
+                profile_info.pincode,
+                profile_info.phone,
+                profile_info.email,
+                profile_info.bank_name,
+                profile_info.bank_branch,
+                profile_info.bank_ifsc,
+                profile_info.bank_account_number,
+                profile_info.invoice_prefix,
+                profile_info.next_invoice_number,
+                now,
+            ],
+        )
+        .map_err(|e| e.to_string())?;
+
+    // Update onboarding flag in global auth DB
+    global_conn
+        .execute(
+            "UPDATE users SET is_onboarded = 1 WHERE email = ?1",
+            params![current_user_session.user_email],
+        )
+        .map_err(|e| e.to_string())?;
+
+    // 3. Update session
+    let mut session = load_session()?; // load existing session
+    session.is_onboarded = true;
+    store_session(session).map_err(|e| e.to_string())?;
+
+    Ok("Onboarding completed.".to_string())
+}
+
+// #[tauri::command]
+// pub fn getProfileDetails() -> 
 
 // Want to implement Google OAuth2 authentication flow with data backup in future, below code is not in use anywhere yet
 

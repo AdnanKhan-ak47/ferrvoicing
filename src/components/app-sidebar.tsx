@@ -1,8 +1,7 @@
 "use client"
 
 import type * as React from "react"
-import { Receipt, Settings, Users } from "lucide-react"
-
+import { Receipt, Settings, Users, User } from "lucide-react"
 import { NavMain } from "@/components/nav-main"
 import { NavUser } from "@/components/nav-user"
 import { ThemeToggle } from "@/components/theme-toggle"
@@ -64,6 +63,25 @@ const data = {
         {
           title: "Add Client",
           url: "/clients?add=true",
+        },
+      ],
+    },
+    {
+      title: "Profile",
+      url: "/profile",
+      icon: User,
+      items: [
+        {
+          title: "Personal Info",
+          url: "/profile",
+        },
+        {
+          title: "Company Details",
+          url: "/profile#company",
+        },
+        {
+          title: "Bank Details",
+          url: "/profile#banking",
         },
       ],
     },

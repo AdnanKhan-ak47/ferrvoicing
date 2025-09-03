@@ -19,7 +19,6 @@ export function SignupForm() {
     email: "",
     password: "",
     confirmPassword: "",
-    companyName: "",
     agreeToTerms: false,
   })
   const [showPassword, setShowPassword] = useState(false)
@@ -38,8 +37,6 @@ export function SignupForm() {
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {}
-
-    if (!formData.companyName.trim()) newErrors.companyName = "Company name is required"
 
     if (!formData.email.trim()) {
       newErrors.email = "Email is required"
@@ -77,11 +74,11 @@ export function SignupForm() {
     setIsLoading(true)
 
     try {
-      const res = invoke<string>("signup_user", {name: formData.companyName, email: formData.email, password: formData.password});
+      const res = invoke<string>("signup_user", {email: formData.email, password: formData.password});
 
       console.log(res);
 
-      // Redirect to invoices
+      // Redirect to onboarding instead of invoices
       router.push("/login")
     } catch (error) {
       console.error(error)
@@ -110,18 +107,6 @@ export function SignupForm() {
               <AlertDescription>{errors.general}</AlertDescription>
             </Alert>
           )}
-
-          <div className="space-y-2">
-            <Label htmlFor="companyName">Company Name</Label>
-            <Input
-              id="companyName"
-              placeholder="Your Company Ltd."
-              value={formData.companyName}
-              onChange={(e) => handleInputChange("companyName", e.target.value)}
-              disabled={isLoading}
-            />
-            {errors.companyName && <p className="text-sm text-destructive">{errors.companyName}</p>}
-          </div>
 
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>

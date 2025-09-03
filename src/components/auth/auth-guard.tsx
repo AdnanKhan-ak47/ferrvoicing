@@ -20,10 +20,13 @@ export function AuthGuard({ children }: AuthGuardProps) {
     const checkAuth = async () => {
       // Check if user is logged in (replace with actual auth logic)
       const isLoggedIn = await invoke("is_logged_in");
-      
+      const onboardingCompleted = await invoke("is_onboarded");
+      console.log("onboardingCompleted: ", onboardingCompleted);
 
       if (!isLoggedIn) {
         router.push("/login")
+      } else if (!onboardingCompleted) {
+        router.push("/onboarding")
       } else {
         setIsAuthenticated(true)
       }
