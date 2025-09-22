@@ -10,7 +10,7 @@ use uuid::Uuid;
 
 use crate::db::{get_connection, init_db};
 use crate::models::user::Profile;
-use crate::utils::{get_current_user_hash, hash_email};
+use crate::utils::{get_current_user_db_path, get_current_user_hash, hash_email};
 use crate::{models::user::UserSession, utils::get_app_data_path};
 
 #[tauri::command]
@@ -145,7 +145,7 @@ pub fn is_onboarded() -> Result<bool, String> {
 
     // Try to parse the JSON into a struct
     let session: UserSession = serde_json::from_str(&content).map_err(|e| e.to_string())?;
-    
+
     Ok(session.is_onboarded) // true if parsed successfully
 }
 
@@ -157,7 +157,6 @@ pub fn complete_onboarding(profile_info: Profile) -> Result<String, String> {
     let global_conn = Connection::open(&global_db_path).map_err(|e| e.to_string())?;
 
     let current_user_session = load_session()?;
-
 
     // 2. Open user-specific DB
     let user_conn = get_connection().map_err(|e| e.to_string())?;
@@ -177,9 +176,12 @@ pub fn complete_onboarding(profile_info: Profile) -> Result<String, String> {
                 bank_name TEXT,
                 bank_branch TEXT,
                 bank_ifsc TEXT,
+                bank_account_name TEXT,
                 bank_account_number TEXT,
                 invoice_prefix TEXT,
-                next_invoice_number REAL,
+                next_invoice_number INTEGER NOT NULL,
+                next_debit_number INTEGER NOT NULL,
+                next_credit_number INTEGER NOT NULL,
                 updated_at TEXT NOT NULL
             )",
             [],
@@ -203,12 +205,15 @@ pub fn complete_onboarding(profile_info: Profile) -> Result<String, String> {
             bank_name,
             bank_branch,
             bank_ifsc,
+            bank_account_name,
             bank_account_number,
             invoice_prefix, 
             next_invoice_number, 
+            next_debit_number, 
+            next_credit_number, 
             updated_at
             )
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19)
              ON CONFLICT(id) DO UPDATE SET
                 company_name = excluded.company_name,
                 gst_number = excluded.gst_number,
@@ -221,14 +226,17 @@ pub fn complete_onboarding(profile_info: Profile) -> Result<String, String> {
                 bank_name = excluded.bank_name,
                 bank_branch = excluded.bank_branch,
                 bank_ifsc = excluded.bank_ifsc,
+                bank_account_name = excluded.bank_account_name,
                 bank_account_number = excluded.bank_account_number,
                 invoice_prefix = excluded.invoice_prefix,
                 next_invoice_number = excluded.next_invoice_number,
+                next_debit_number = excluded.next_debit_number,
+                next_credit_number = excluded.next_credit_number,
                 updated_at = excluded.updated_at",
             params![
                 "profile", // static ID since only one profile per user
                 profile_info.company_name,
-                profile_info.gst_number, 
+                profile_info.gst_number,
                 profile_info.address,
                 profile_info.city,
                 profile_info.state,
@@ -238,9 +246,12 @@ pub fn complete_onboarding(profile_info: Profile) -> Result<String, String> {
                 profile_info.bank_name,
                 profile_info.bank_branch,
                 profile_info.bank_ifsc,
+                profile_info.bank_account_name,
                 profile_info.bank_account_number,
                 profile_info.invoice_prefix,
                 profile_info.next_invoice_number,
+                profile_info.next_debit_number,
+                profile_info.next_credit_number,
                 now,
             ],
         )
@@ -262,8 +273,45 @@ pub fn complete_onboarding(profile_info: Profile) -> Result<String, String> {
     Ok("Onboarding completed.".to_string())
 }
 
-// #[tauri::command]
-// pub fn getProfileDetails() -> 
+#[tauri::command]
+pub fn get_profile_details() -> Result<Profile, String> {
+    let user_conn = get_connection().map_err(|e| e.to_string())?;
+
+    let profile_details: Profile = user_conn
+            .query_row(
+            r#"
+            SELECT company_name, gst_number, phone, email, address, city, state, pincode,
+                bank_name, bank_branch, bank_ifsc, bank_account_name, bank_account_number, invoice_prefix,
+                next_invoice_number, next_debit_number, next_credit_number
+            FROM profile LIMIT 1
+            "#,
+            [],
+            |row| {
+                Ok(Profile {
+                    company_name: row.get(0)?,
+                    gst_number: row.get(1)?,
+                    phone: row.get(2)?,
+                    email: row.get(3)?,
+                    address: row.get(4)?,
+                    city: row.get(5)?,
+                    state: row.get(6)?,
+                    pincode: row.get(7)?,
+                    bank_name: row.get(8)?,
+                    bank_branch: row.get(9)?,
+                    bank_ifsc: row.get(10)?,
+                    bank_account_name: row.get(11)?,
+                    bank_account_number: row.get(12)?,
+                    invoice_prefix: row.get(13)?,
+                    next_invoice_number: row.get(14)?,
+                    next_debit_number: row.get(15)?,
+                    next_credit_number: row.get(16)?,
+                })
+            },
+        )
+        .map_err(|e| e.to_string())?;
+
+    Ok(profile_details)
+}
 
 // Want to implement Google OAuth2 authentication flow with data backup in future, below code is not in use anywhere yet
 

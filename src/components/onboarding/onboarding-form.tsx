@@ -71,12 +71,15 @@ export function OnboardingForm() {
 
     // Bank Details
     bankName: "",
+    accountName: "",
     accountNumber: "",
     ifscCode: "",
     branchName: "",
 
     invoicePrefix: "INV",
     nextInvoiceNumber: 1,
+    nextDebitNumber: 1,
+    nextCreditNumber: 1
   })
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [isLoading, setIsLoading] = useState(false)
@@ -131,6 +134,7 @@ export function OnboardingForm() {
 
       case 4: // Bank Details & Additional Info
         if (!formData.bankName.trim()) newErrors.bankName = "Bank name is required"
+        if (!formData.accountName.trim()) newErrors.accountName = "Account name is required"
         if (!formData.accountNumber.trim()) newErrors.accountNumber = "Account number is required"
         if (!formData.ifscCode.trim()) {
           newErrors.ifscCode = "IFSC code is required"
@@ -163,6 +167,7 @@ export function OnboardingForm() {
     try {
       // Simulate API call - replace with actual onboarding
       // await new Promise((resolve) => setTimeout(resolve, 2000))
+      console.log(typeof(formData.nextInvoiceNumber))
       const res = await invoke("complete_onboarding", {
         profileInfo: {
           company_name: formData.companyName,
@@ -176,9 +181,12 @@ export function OnboardingForm() {
           bank_name: formData.bankName,
           bank_branch: formData.branchName,
           bank_ifsc: formData.ifscCode,
+          bank_account_name: formData.accountName,
           bank_account_number: formData.accountNumber,
           invoice_prefix: formData.invoicePrefix,
-          next_invoice_number: formData.nextInvoiceNumber,
+          next_invoice_number: Number(formData.nextInvoiceNumber),
+          next_debit_number: Number(formData.nextDebitNumber),
+          next_credit_number: Number(formData.nextCreditNumber),
         }
       })
 
@@ -395,6 +403,22 @@ export function OnboardingForm() {
               </div>
 
               <div className="space-y-2">
+                <Label htmlFor="accountName" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Account Name *
+                </Label>
+                <Input
+                  id="accountName"
+                  placeholder="ABC Enterprise Ltd"
+                  value={formData.accountName}
+                  onChange={(e) => handleInputChange("accountName", e.target.value)}
+                  className="h-11 font-mono border-gray-200 dark:border-gray-700 focus:border-indigo-500 dark:focus:border-indigo-400 transition-colors"
+                />
+                {errors.accountName && (
+                  <p className="text-sm text-red-600 dark:text-red-400">{errors.accountName}</p>
+                )}
+              </div>
+
+              <div className="space-y-2">
                 <Label htmlFor="accountNumber" className="text-sm font-medium text-gray-700 dark:text-gray-300">
                   Account Number *
                 </Label>
@@ -452,8 +476,35 @@ export function OnboardingForm() {
                     <Input
                       id="nextInvoiceNumber"
                       placeholder="1001"
+                      type="number"
                       value={formData.nextInvoiceNumber}
                       onChange={(e) => handleInputChange("nextInvoiceNumber", e.target.value)}
+                      className="h-11 border-gray-200 dark:border-gray-700 focus:border-indigo-500 dark:focus:border-indigo-400 transition-colors"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="nextDebitNumber" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Starting Debit Note Number
+                    </Label>
+                    <Input
+                      id="nextDebitNumber"
+                      placeholder="1001"
+                      type="number"
+                      value={formData.nextDebitNumber}
+                      onChange={(e) => handleInputChange("nextDebitNumber", e.target.value)}
+                      className="h-11 border-gray-200 dark:border-gray-700 focus:border-indigo-500 dark:focus:border-indigo-400 transition-colors"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="nextCreditNumber" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Starting Credit Note Number
+                    </Label>
+                    <Input
+                      id="nextCreditNumber"
+                      placeholder="1001"
+                      type="number"
+                      value={formData.nextCreditNumber}
+                      onChange={(e) => handleInputChange("nextCreditNumber", e.target.value)}
                       className="h-11 border-gray-200 dark:border-gray-700 focus:border-indigo-500 dark:focus:border-indigo-400 transition-colors"
                     />
                   </div>

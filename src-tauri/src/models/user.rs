@@ -32,7 +32,10 @@ pub struct Profile {
     pub bank_name: String,
     pub bank_branch: String,
     pub bank_ifsc: String,
+    pub bank_account_name: String,
     pub bank_account_number: String,
     pub invoice_prefix: String,
-    pub next_invoice_number: u32
+    pub next_invoice_number: u32,
+    pub next_debit_number: u32,
+    pub next_credit_number: u32,
 }

@@ -1,6 +1,6 @@
 use tauri::command;
 
-use crate::{commands::{company::{add_company, search_company}, invoice::{create_invoice, get_invoice_ids, search_invoices}, user::{complete_onboarding, is_logged_in, is_onboarded, login, logout, signup_user}}, db::{init_db, init_global_db}, utils::get_app_data_path};
+use crate::{commands::{company::{add_company, search_company}, invoice::{create_invoice, get_invoice_ids, search_invoices}, user::{complete_onboarding, get_profile_details, is_logged_in, is_onboarded, login, logout, signup_user}}, db::{init_db, init_global_db}, utils::get_app_data_path};
 pub mod db;
 pub mod models;
 pub mod commands;
@@ -31,6 +31,7 @@ pub fn run() {
             search_invoices,
             create_invoice,
             get_invoice_ids,
+            get_profile_details,
             signup_user,
             login,
             logout,

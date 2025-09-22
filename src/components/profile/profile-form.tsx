@@ -12,6 +12,7 @@ import { Building2, Phone, CreditCard, FileText, Save, User } from "lucide-react
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { invoke } from "@tauri-apps/api/core"
 
 const indianStates = [
   { code: "01", name: "Jammu and Kashmir" },
@@ -55,16 +56,9 @@ const indianStates = [
 
 export function ProfileForm() {
   const [formData, setFormData] = useState({
-    // Personal Information
-    firstName: "",
-    lastName: "",
-    personalEmail: "",
-
     // Company Information
     companyName: "",
-    companyType: "",
     gstNumber: "",
-    panNumber: "",
 
     // Address Information
     address: "",
@@ -75,18 +69,18 @@ export function ProfileForm() {
     // Contact Information
     phone: "",
     email: "",
-    website: "",
 
     // Bank Details
     bankName: "",
+    accountName: "",
     accountNumber: "",
     ifscCode: "",
     branchName: "",
 
-    // Additional Info
-    businessDescription: "",
-    invoicePrefix: "INV",
-    nextInvoiceNumber: "1001",
+    invoicePrefix: "",
+    nextInvoiceNumber: 1,
+    nextDebitNumber: 1,
+    nextCreditNumber: 1,
   })
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [isLoading, setIsLoading] = useState(false)
@@ -94,32 +88,58 @@ export function ProfileForm() {
 
   // Load existing data on component mount
   useEffect(() => {
-    const loadProfileData = () => {
-      // Load from localStorage (replace with actual API call)
-      const companyInfo = localStorage.getItem("companyInfo")
-      const userEmail = localStorage.getItem("userEmail")
-      const userName = localStorage.getItem("userName")
 
-      if (companyInfo) {
-        const parsedData = JSON.parse(companyInfo)
-        setFormData({ ...formData, ...parsedData })
-      }
+    const getProfileDetails = async () => {
+      const profileDetails = await invoke("get_profile_details");
 
-      if (userEmail) {
-        setFormData((prev) => ({ ...prev, personalEmail: userEmail }))
-      }
+// address: "Room no, Test, Test Road, Near Test"
+// bank_account_name: "Test"
+// bank_account_number: "123123123123123"
+// bank_branch: "TEST BRANCH"
+// bank_ifsc: "TEST0001231"
+// bank_name: "TEST Bank of India"
+// city: "Mumbai"
+// company_name: "Test"
+// email: "test@gmail.com"
+// gst_number: "27AJMSK3022R1ZT"
+// invoice_prefix: "QT"
+// next_invoice_number: 4
+// phone: "2131231231"
+// pincode: "400081"
+// state: "27"
+// Object Prototype
 
-      if (userName) {
-        const [firstName, ...lastNameParts] = userName.split(" ")
-        setFormData((prev) => ({
-          ...prev,
-          firstName: firstName || "",
-          lastName: lastNameParts.join(" ") || "",
-        }))
-      }
+      setFormData({
+        // Company Information
+        companyName: profileDetails.company_name,
+        gstNumber: profileDetails.gst_number,
+
+        // Address Information
+        address: profileDetails.address,
+        city: profileDetails.city,
+        state: profileDetails.state,
+        pincode: profileDetails.pincode,
+
+        // Contact Information
+        phone: profileDetails.phone,
+        email: profileDetails.email,
+
+        // Bank Details
+        bankName: profileDetails.bank_name,
+        accountName: profileDetails.bank_account_name,
+        accountNumber: profileDetails.bank_account_number,
+        ifscCode: profileDetails.bank_ifsc,
+        branchName: profileDetails.bank_branch,
+
+        invoicePrefix: profileDetails.invoice_prefix,
+        nextInvoiceNumber: profileDetails.next_invoice_number,
+        nextDebitNumber: profileDetails.next_debit_number,
+        nextCreditNumber: profileDetails.next_credit_number,
+      })
+      console.log(profileDetails)
     }
 
-    loadProfileData()
+    getProfileDetails();
   }, [])
 
   const handleInputChange = (field: string, value: string) => {
@@ -137,26 +157,12 @@ export function ProfileForm() {
   const validateForm = () => {
     const newErrors: Record<string, string> = {}
 
-    // Personal Information
-    if (!formData.firstName.trim()) newErrors.firstName = "First name is required"
-    if (!formData.lastName.trim()) newErrors.lastName = "Last name is required"
-    if (!formData.personalEmail.trim()) {
-      newErrors.personalEmail = "Personal email is required"
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.personalEmail)) {
-      newErrors.personalEmail = "Invalid email format"
-    }
-
     // Company Information
     if (!formData.companyName.trim()) newErrors.companyName = "Company name is required"
     if (!formData.gstNumber.trim()) {
       newErrors.gstNumber = "GST number is required"
     } else if (!/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(formData.gstNumber)) {
       newErrors.gstNumber = "Invalid GST number format"
-    }
-    if (!formData.panNumber.trim()) {
-      newErrors.panNumber = "PAN number is required"
-    } else if (!/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(formData.panNumber)) {
-      newErrors.panNumber = "Invalid PAN number format"
     }
 
     // Address Information
@@ -183,6 +189,7 @@ export function ProfileForm() {
 
     // Bank Details
     if (!formData.bankName.trim()) newErrors.bankName = "Bank name is required"
+    if (!formData.accountName.trim()) newErrors.accountName = "Account name is required"
     if (!formData.accountNumber.trim()) newErrors.accountNumber = "Account number is required"
     if (!formData.ifscCode.trim()) {
       newErrors.ifscCode = "IFSC code is required"
@@ -207,9 +214,6 @@ export function ProfileForm() {
       await new Promise((resolve) => setTimeout(resolve, 1500))
 
       // Update localStorage (replace with actual API call)
-      localStorage.setItem("companyInfo", JSON.stringify(formData))
-      localStorage.setItem("userEmail", formData.personalEmail)
-      localStorage.setItem("userName", `${formData.firstName} ${formData.lastName}`)
 
       setSuccessMessage("Profile updated successfully!")
     } catch (error) {
@@ -239,57 +243,12 @@ export function ProfileForm() {
       )}
 
       <form onSubmit={handleSubmit}>
-        <Tabs defaultValue="personal" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="personal">Personal</TabsTrigger>
+        <Tabs defaultValue="company" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="company">Company</TabsTrigger>
             <TabsTrigger value="contact">Contact</TabsTrigger>
             <TabsTrigger value="banking">Banking</TabsTrigger>
           </TabsList>
-
-          <TabsContent value="personal" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <User className="h-5 w-5" />
-                  Personal Information
-                </CardTitle>
-                <CardDescription>Update your personal details</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="firstName">First Name *</Label>
-                    <Input
-                      id="firstName"
-                      value={formData.firstName}
-                      onChange={(e) => handleInputChange("firstName", e.target.value)}
-                    />
-                    {errors.firstName && <p className="text-sm text-destructive">{errors.firstName}</p>}
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="lastName">Last Name *</Label>
-                    <Input
-                      id="lastName"
-                      value={formData.lastName}
-                      onChange={(e) => handleInputChange("lastName", e.target.value)}
-                    />
-                    {errors.lastName && <p className="text-sm text-destructive">{errors.lastName}</p>}
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="personalEmail">Personal Email *</Label>
-                  <Input
-                    id="personalEmail"
-                    type="email"
-                    value={formData.personalEmail}
-                    onChange={(e) => handleInputChange("personalEmail", e.target.value)}
-                  />
-                  {errors.personalEmail && <p className="text-sm text-destructive">{errors.personalEmail}</p>}
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
 
           <TabsContent value="company" className="space-y-6">
             <Card>
@@ -311,28 +270,6 @@ export function ProfileForm() {
                   {errors.companyName && <p className="text-sm text-destructive">{errors.companyName}</p>}
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="companyType">Company Type</Label>
-                  <Select
-                    value={formData.companyType}
-                    onValueChange={(value) => handleInputChange("companyType", value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select company type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="private-limited">Private Limited Company</SelectItem>
-                      <SelectItem value="public-limited">Public Limited Company</SelectItem>
-                      <SelectItem value="partnership">Partnership Firm</SelectItem>
-                      <SelectItem value="llp">Limited Liability Partnership (LLP)</SelectItem>
-                      <SelectItem value="sole-proprietorship">Sole Proprietorship</SelectItem>
-                      <SelectItem value="opc">One Person Company (OPC)</SelectItem>
-                      <SelectItem value="trust">Trust</SelectItem>
-                      <SelectItem value="society">Society</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="gstNumber">GST Number *</Label>
@@ -344,17 +281,6 @@ export function ProfileForm() {
                       maxLength={15}
                     />
                     {errors.gstNumber && <p className="text-sm text-destructive">{errors.gstNumber}</p>}
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="panNumber">PAN Number *</Label>
-                    <Input
-                      id="panNumber"
-                      value={formData.panNumber}
-                      onChange={(e) => handleInputChange("panNumber", e.target.value.toUpperCase())}
-                      className="font-mono"
-                      maxLength={10}
-                    />
-                    {errors.panNumber && <p className="text-sm text-destructive">{errors.panNumber}</p>}
                   </div>
                 </div>
 
@@ -442,26 +368,6 @@ export function ProfileForm() {
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="website">Website</Label>
-                  <Input
-                    id="website"
-                    value={formData.website}
-                    onChange={(e) => handleInputChange("website", e.target.value)}
-                    placeholder="https://www.company.com"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="businessDescription">Business Description</Label>
-                  <Textarea
-                    id="businessDescription"
-                    value={formData.businessDescription}
-                    onChange={(e) => handleInputChange("businessDescription", e.target.value)}
-                    rows={3}
-                    placeholder="Brief description of your business"
-                  />
-                </div>
               </CardContent>
             </Card>
           </TabsContent>
@@ -495,6 +401,17 @@ export function ProfileForm() {
                     />
                     {errors.branchName && <p className="text-sm text-destructive">{errors.branchName}</p>}
                   </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="accountName">Account Name *</Label>
+                  <Input
+                    id="accountName"
+                    value={formData.accountName}
+                    onChange={(e) => handleInputChange("accountName", e.target.value)}
+                    className="font-mono"
+                  />
+                  {errors.accountName && <p className="text-sm text-destructive">{errors.accountName}</p>}
                 </div>
 
                 <div className="space-y-2">
@@ -540,6 +457,22 @@ export function ProfileForm() {
                         id="nextInvoiceNumber"
                         value={formData.nextInvoiceNumber}
                         onChange={(e) => handleInputChange("nextInvoiceNumber", e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="nextDebitNumber">Next Debit Number</Label>
+                      <Input
+                        id="nextDebitNumber"
+                        value={formData.nextDebitNumber}
+                        onChange={(e) => handleInputChange("nextDebitNumber", e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="nextCreditNumber">Next Credit Number</Label>
+                      <Input
+                        id="nextCreditNumber"
+                        value={formData.nextCreditNumber}
+                        onChange={(e) => handleInputChange("nextCreditNumber", e.target.value)}
                       />
                     </div>
                   </div>

@@ -14,5 +14,8 @@ CREATE TABLE IF NOT EXISTS profile (
     bank_account_name TEXT NOT NULL,
     bank_account_number TEXT NOT NULL,
     invoice_prefix TEXT NOT NULL,
+    next_invoice_number INTEGER NOT NULL,
+    next_debit_number INTEGER NOT NULL,
+    next_credit_number INTEGER NOT NULL,
     updated_at TEXT
 );

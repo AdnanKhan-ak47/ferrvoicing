@@ -70,6 +70,10 @@ export function CreateDocumentDialog({ children }: { children: React.ReactNode }
   const [sgstRate, setSgstRate] = useState(9)
   const [igstRate, setIgstRate] = useState(18)
 
+  const getProfileDetails = async() => {
+    
+  }
+
   const searchClients = async (query: string) => {
     try {
       const searchFilter: string = "name";
