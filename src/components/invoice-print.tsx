@@ -19,6 +19,7 @@ interface AdditionalCharge {
 
 interface InvoiceData {
   id: string
+  invoiceNumber: string
   date: string
   issuer: {
     name: string
@@ -26,7 +27,6 @@ interface InvoiceData {
     phone: string
     gstNumber: string
     email: string
-    pan: string
   }
   recipient: {
     name: string
@@ -35,7 +35,6 @@ interface InvoiceData {
     phone: string
     gstNumber: string
     email: string
-    pan: string
   }
   items: InvoiceItem[]
   additionalCharges?: AdditionalCharge[]
@@ -79,7 +78,10 @@ export function InvoicePrint({ invoiceData }: InvoicePrintProps) {
       margin: 0,
       filename: `invoice-${Date.now()}.pdf`,
       image: { type: "jpeg", quality: 0.98 },
-      html2canvas: { scale: 2 },
+      html2canvas: {
+        scale: 2,
+        backgroundColor: "#ffffff"
+      },
       jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
     }
 
@@ -87,54 +89,99 @@ export function InvoicePrint({ invoiceData }: InvoicePrintProps) {
   }
 
   const handlePrintInNewWindow = () => {
-    const invoice = document.getElementById("invoice-print");
-    if (!invoice) return;
+    const invoiceElement = document.getElementById("invoice-print");
+    if (!invoiceElement) {
+      console.error("Print Error: Could not find element #invoice-print");
+      return;
+    }
 
-    const printWindow = window.open("", "PRINT", "width=800,height=1000");
-    if (!printWindow) return;
+    // 1. Create a hidden iframe
+    const iframe = document.createElement("iframe");
+    iframe.style.display = "none";
+    document.body.appendChild(iframe);
 
-    const styleSheets = [...document.styleSheets]
-      .map((styleSheet) => {
-        try {
-          if (styleSheet.href) {
-            return `<link rel="stylesheet" href="${styleSheet.href}">`;
-          }
-          return "";
-        } catch (e) {
-          return "";
+    // Get the iframe's document
+    const iframeDoc = iframe.contentWindow.document;
+
+    // 2. Clone all <style> and <link rel="stylesheet"> tags from the main document
+    const headElements = document.querySelectorAll(
+      'head > style, head > link[rel="stylesheet"]'
+    );
+    const iframeHead = iframeDoc.head;
+    headElements.forEach((el) => {
+      iframeHead.appendChild(el.cloneNode(true));
+    });
+
+    // 3. Add a @print style rule to ensure it fits the page
+    const printStyle = iframeDoc.createElement("style");
+    printStyle.textContent = `
+      @media print {
+        body { margin: 0; padding: 0; }
+        @page { size: A4; margin: 0; }
+        /* Ensure the layout from your previous fix works */
+        #invoice-print {
+          min-height: 29.7cm; /* A4 height */
+          display: flex;
+          flex-direction: column;
         }
-      })
-      .join("");
+        .flex-grow {
+          flex-grow: 1;
+        }
+      }
+    `;
+    iframeHead.appendChild(printStyle);
 
-    printWindow.document.write(`
-    <html>
-      <head>
-        <title>Invoice</title>
-        ${styleSheets}
-        <style>
-          @media print {
-            body {
-              margin: 0;
-              padding: 0;
-              color: black;
-              background: white;
-            }
-          }
-        </style>
-      </head>
-      <body>
-        <div>${invoice.innerHTML}</div>
-      </body>
-    </html>
-  `);
+    // 4. Set the iframe body content
+    const iframeBody = iframeDoc.body;
+    iframeBody.innerHTML = invoiceElement.innerHTML;
 
-    printWindow.document.close();
-    printWindow.focus();
+    // 5. Wait for all styles to load before printing
+    // This is the most critical part
 
+    let loadedStyles = 0;
+    const stylesheets = iframeHead.querySelectorAll('link[rel="stylesheet"]');
+    const totalStyles = stylesheets.length;
+
+    const triggerPrint = () => {
+      try {
+        iframe.contentWindow.focus();
+        iframe.contentWindow.print();
+      } catch (e) {
+        console.error("Print failed:", e);
+      } finally {
+        // Clean up: remove the iframe
+        setTimeout(() => {
+          document.body.removeChild(iframe);
+        }, 500);
+      }
+    };
+
+    if (totalStyles === 0) {
+      // If no linked styles, print immediately
+      triggerPrint();
+      return;
+    }
+
+    // Add onload/onerror handlers for each stylesheet
+    stylesheets.forEach(link => {
+      const onEvent = () => {
+        loadedStyles++;
+        if (loadedStyles === totalStyles) {
+          triggerPrint();
+        }
+      };
+      link.onload = onEvent;
+      link.onerror = onEvent; // Count errors as "loaded" too so we don't block
+    });
+
+    // Add a safety timeout in case onload events don't fire
     setTimeout(() => {
-      printWindow.print();
-      printWindow.close();
-    }, 500);
+      if (loadedStyles < totalStyles) {
+        console.warn("Print timed out waiting for styles. Printing anyway.");
+        triggerPrint();
+      }
+    }, 3000); // 3-second timeout
+
   };
 
 
@@ -152,42 +199,81 @@ export function InvoicePrint({ invoiceData }: InvoicePrintProps) {
   const total = Math.round(subtotal + totalTax)
 
   // Convert number to words (simplified version)
+  const ones = [
+    "",
+    "One",
+    "Two",
+    "Three",
+    "Four",
+    "Five",
+    "Six",
+    "Seven",
+    "Eight",
+    "Nine",
+    "Ten",
+    "Eleven",
+    "Twelve",
+    "Thirteen",
+    "Fourteen",
+    "Fifteen",
+    "Sixteen",
+    "Seventeen",
+    "Eighteen",
+    "Nineteen",
+  ]
+  const tens = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"]
+
+  /**
+   * Converts a number into its string representation in the Indian numbering system
+   * (Lakhs, Crores).
+   * @param num The number to convert.
+   * @returns The number in words.
+   */
   const numberToWords = (num: number): string => {
-    const ones = [
-      "",
-      "One",
-      "Two",
-      "Three",
-      "Four",
-      "Five",
-      "Six",
-      "Seven",
-      "Eight",
-      "Nine",
-      "Ten",
-      "Eleven",
-      "Twelve",
-      "Thirteen",
-      "Fourteen",
-      "Fifteen",
-      "Sixteen",
-      "Seventeen",
-      "Eighteen",
-      "Nineteen",
-    ]
-    const tens = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"]
+    // A helper function to add a space and recursively call the main function
+    // This avoids adding " Zero" at the end of numbers.
+    const numToString = (n: number): string => {
+      if (n === 0) return "";
+      return " " + numberToWords(n);
+    }
 
-    if (num === 0) return "Zero"
-    if (num < 20) return ones[num]
-    if (num < 100) return tens[Math.floor(num / 10)] + (num % 10 !== 0 ? " " + ones[num % 10] : "")
-    if (num < 1000)
-      return ones[Math.floor(num / 100)] + " Hundred" + (num % 100 !== 0 ? " " + numberToWords(num % 100) : "")
-    if (num < 100000)
-      return (
-        numberToWords(Math.floor(num / 1000)) + " Thousand" + (num % 1000 !== 0 ? " " + numberToWords(num % 1000) : "")
-      )
+    // Handle the base cases
+    if (num === 0) return "Zero";
 
-    return "Amount Too Large"
+    // Handle negative numbers (optional, but good practice)
+    if (num < 0) return "Negative" + numToString(Math.abs(num));
+
+    // --- Logic for Indian Numbering System ---
+    // We check from the largest denomination downwards.
+
+    // 1. Crores (1,00,00,000)
+    if (num >= 10000000) {
+      return numberToWords(Math.floor(num / 10000000)) + " Crore" + numToString(num % 10000000);
+    }
+
+    // 2. Lakhs (1,00,000)
+    if (num >= 100000) {
+      return numberToWords(Math.floor(num / 100000)) + " Lakh" + numToString(num % 100000);
+    }
+
+    // 3. Thousands (1,000)
+    if (num >= 1000) {
+      return numberToWords(Math.floor(num / 1000)) + " Thousand" + numToString(num % 1000);
+    }
+
+    // 4. Hundreds (100)
+    if (num >= 100) {
+      return numberToWords(Math.floor(num / 100)) + " Hundred" + numToString(num % 100);
+    }
+
+    // 5. Tens (20-99)
+    if (num >= 20) {
+      return tens[Math.floor(num / 10)] + numToString(num % 10);
+    }
+
+    // 6. Ones (1-19)
+    // This is the final case, so it just returns from the `ones` array.
+    return ones[num];
   }
 
   const totalInWords = numberToWords(total) + " Only"
@@ -217,7 +303,7 @@ export function InvoicePrint({ invoiceData }: InvoicePrintProps) {
             <div className="text-xs text-black">
               Email-{invoiceData.issuer.email}, mobile-{invoiceData.issuer.phone}
             </div>
-            <div className="text-xs font-semibold text-black">PAN : {invoiceData.issuer.pan}</div>
+            {/* <div className="text-xs font-semibold text-black">PAN : {invoiceData.issuer.pan}</div> */}
             <div className="text-xs font-semibold text-black">GSTIN : {invoiceData.issuer.gstNumber}</div>
           </div>
 
@@ -227,7 +313,8 @@ export function InvoicePrint({ invoiceData }: InvoicePrintProps) {
               <div className="flex text-black">
                 <span className="w-20">Invoice No.</span>
                 <span className="mr-2">:</span>
-                <span className="font-semibold">{invoiceData.id}</span>
+                <span className="font-semibold">{invoiceData.invoiceNumber}</span>
+                {console.log("This is invoiceData: ", invoiceData)}
               </div>
               <div className="flex text-black">
                 <span className="w-20">Dated</span>
@@ -277,7 +364,7 @@ export function InvoicePrint({ invoiceData }: InvoicePrintProps) {
               <div className="font-bold text-black">{invoiceData.recipient.name}</div>
               <div className="text-black whitespace-pre-line">{invoiceData.recipient.address}</div>
               <div className="mt-2">
-                <div className="text-black">Party PAN : {invoiceData.recipient.pan}</div>
+                {/* <div className="text-black">Party PAN : {invoiceData.recipient.pan}</div> */}
                 <div className="text-black">GSTIN / UIN : {invoiceData.recipient.gstNumber}</div>
               </div>
             </div>
@@ -287,7 +374,7 @@ export function InvoicePrint({ invoiceData }: InvoicePrintProps) {
               <div className="font-bold text-black">{invoiceData.recipient.name}</div>
               <div className="text-black whitespace-pre-line">{invoiceData.recipient.address}</div>
               <div className="mt-2">
-                <div className="text-black">Party PAN : {invoiceData.recipient.pan}</div>
+                {/* <div className="text-black">Party PAN : {invoiceData.recipient.pan}</div> */}
                 <div className="text-black">GSTIN / UIN : {invoiceData.recipient.gstNumber}</div>
               </div>
             </div>

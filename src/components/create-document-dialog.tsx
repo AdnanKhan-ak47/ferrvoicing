@@ -30,6 +30,7 @@ interface LineItem {
   description: string
   hsnCode: string
   quantity: number
+  uqc: string // Unit Quantity Code
   rate: number
   amount: number
 }
@@ -44,18 +45,83 @@ interface Client {
   email: string
 }
 
+const indianStates = [
+  { code: "01", label: "Jammu and Kashmir (01)" },
+  { code: "02", label: "Himachal Pradesh (02)" },
+  { code: "03", label: "Punjab (03)" },
+  { code: "04", label: "Chandigarh (04)" },
+  { code: "05", label: "Uttarakhand (05)" },
+  { code: "06", label: "Haryana (06)" },
+  { code: "07", label: "Delhi (07)" },
+  { code: "08", label: "Rajasthan (08)" },
+  { code: "09", label: "Uttar Pradesh (09)" },
+  { code: "10", label: "Bihar (10)" },
+  { code: "11", label: "Sikkim (11)" },
+  { code: "12", label: "Arunachal Pradesh (12)" },
+  { code: "13", label: "Nagaland (13)" },
+  { code: "14", label: "Manipur (14)" },
+  { code: "15", label: "Mizoram (15)" },
+  { code: "16", label: "Tripura (16)" },
+  { code: "17", label: "Meghalaya (17)" },
+  { code: "18", label: "Assam (18)" },
+  { code: "19", label: "West Bengal (19)" },
+  { code: "20", label: "Jharkhand (20)" },
+  { code: "21", label: "Odisha (21)" },
+  { code: "22", label: "Chhattisgarh (22)" },
+  { code: "23", label: "Madhya Pradesh (23)" },
+  { code: "24", label: "Gujarat (24)" },
+  { code: "25", label: "Daman and Diu (25)" },
+  { code: "26", label: "Dadra and Nagar Haveli (26)" },
+  { code: "27", label: "Maharashtra (27)" },
+  { code: "28", label: "Andhra Pradesh (28)" },
+  { code: "29", label: "Karnataka (29)" },
+  { code: "30", label: "Goa (30)" },
+  { code: "31", label: "Lakshadweep (31)" },
+  { code: "32", label: "Kerala (32)" },
+  { code: "33", label: "Tamil Nadu (33)" },
+  { code: "34", label: "Puducherry (34)" },
+  { code: "35", label: "Andaman and Nicobar Islands (35)" },
+  { code: "36", label: "Telangana (36)" },
+  { code: "37", label: "Andhra Pradesh (New) (37)" },
+]
 
-export function CreateDocumentDialog({ children }: { children: React.ReactNode }) {
+// Common UQC (Unit Quantity Code) options
+const UQC_OPTIONS = [
+  "PRS", // Pairs
+  "NOS", // Numbers
+  "PCS", // Pieces
+  "KGS", // Kilograms
+  "MTR", // Meters
+  "LTR", // Liters
+  "BAG",
+  "BOX",
+  "SET",
+  "SQF", // Square feet
+  "SQM", // Square meters
+  "CBM", // Cubic meters
+]
+
+
+export function CreateInvoiceDialog({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false)
-  const [documentType, setDocumentType] = useState("invoice")
   const [date, setDate] = useState<Date>()
-  const [lineItems, setLineItems] = useState<LineItem[]>([
-    { description: "", hsnCode: "", quantity: 1, rate: 0, amount: 0 },
-  ])
-  // Additional charges state
-  const [additionalCharges, setAdditionalCharges] = useState<{ description: string; amount: number }[]>([])
 
-  const [documentNumber, setDocumentNumber] = useState<string>("")
+  // Transport details
+  const [transporterName, setTransporterName] = useState("SELF") // Mandatory, default SELF
+  const [vehicleNo, setVehicleNo] = useState("")
+  const [station, setStation] = useState("")
+  const [eWayBillNo, setEWayBillNo] = useState("")
+
+  // Supply and reverse charge
+  const [placeOfSupply, setPlaceOfSupply] = useState("27") // default Maharashtra (27)
+  const [reverseCharge, setReverseCharge] = useState<"Y" | "N">("N")
+
+  // Items and charges
+  const [lineItems, setLineItems] = useState<LineItem[]>([
+    { description: "", hsnCode: "", quantity: 1, uqc: "NOS", rate: 0, amount: 0 },
+  ])
+  const [additionalCharges, setAdditionalCharges] = useState<{ description: string; amount: number }[]>([])
+  const [invoiceNumber, setInvoiceNumber] = useState<string>("")
 
   // Client search state
   const [clientSearch, setClientSearch] = useState("")
@@ -70,8 +136,13 @@ export function CreateDocumentDialog({ children }: { children: React.ReactNode }
   const [sgstRate, setSgstRate] = useState(9)
   const [igstRate, setIgstRate] = useState(18)
 
-  const getProfileDetails = async() => {
-    
+  const [profileDetails, setProfileDetails] = useState<object>({});
+
+  const setUpDocumentFromProfile = async () => {
+    const profile_data = await invoke<object>("get_profile_details");
+    setProfileDetails(profile_data);
+    const invNumber = profile_data.invoice_prefix + `-${profile_data.next_invoice_number}`;
+    setInvoiceNumber(invNumber);
   }
 
   const searchClients = async (query: string) => {
@@ -99,44 +170,66 @@ export function CreateDocumentDialog({ children }: { children: React.ReactNode }
     }
   }
 
-  const handleDocumentCreate = async () => {
+  const handleInvoiceCreate = async () => {
 
     const items = lineItems.map(item => ({
       description: item.description,
       hsn_code: item.hsnCode,
       quantity: item.quantity,
+      unit: item.uqc,
       rate: item.rate,
       amount: item.amount
     }));
 
-    if (documentType === "invoice") {
-      const createInvoice = await invoke("create_invoice", {
-        invoice: {
-          issuer_name: "Qasmi Traders",
-          issuer_address: "",
-          issuer_gst_number: "",
-          issuer_phone: "9969393260",
-          issuer_email: "qasmitraders@gmail.com",
-          recipient_name: selectedClient?.name,
-          recipient_address: selectedClient?.address,
-          recipient_gst_number: selectedClient?.gst_number,
-          recipient_phone: selectedClient?.phone,
-          recipient_email: selectedClient?.email || "",
-          items, // This is the serialized JSON string of items
-          invoice_date: date ? format(date, "yyyy-MM-dd") : new Date().toISOString().split("T")[0],
-          invoice_number: documentNumber,
-          amount: lineItems.reduce((sum, item) => sum + item.amount, 0),
-          cgst_percentage: cgstRate,
-          sgst_percentage: sgstRate,
-          igst_percentage: igstRate,
-          // additional_charges_json,
-          total: total
-        }
-      })
-      console.log("Invoice created:", createInvoice)
-      setOpen(false)
+    const transport_details = {
+      transporter_name: transporterName,
+      place_of_supply: placeOfSupply, 
+      vehicle_no: vehicleNo,
+      station: station,
+      eway_bill_no: eWayBillNo
     }
+
+    const bank_details = {
+      bank_name: profileDetails.bank_name,
+      branch: profileDetails.bank_branch,
+      account_name: profileDetails.bank_account_name,
+      account_no: profileDetails.bank_account_number,
+      ifsc_code: profileDetails.bank_ifsc
+    }
+
+    const createInvoice = await invoke("create_invoice", {
+      invoice: {
+        issuer_name: profileDetails.company_name,
+        issuer_address: profileDetails.address,
+        issuer_gst_number: profileDetails.gst_number,
+        issuer_phone: profileDetails.phone,
+        issuer_email: profileDetails.email,
+        recipient_name: selectedClient?.name,
+        recipient_address: selectedClient?.address,
+        recipient_gst_number: selectedClient?.gst_number,
+        recipient_phone: selectedClient?.phone,
+        recipient_email: selectedClient?.email || "",
+        items, // This is the serialized JSON string of items
+        invoice_date: date ? format(date, "yyyy-MM-dd") : new Date().toISOString().split("T")[0],
+        invoice_number: invoiceNumber,
+        amount: lineItems.reduce((sum, item) => sum + item.amount, 0),
+        cgst_percentage: cgstRate,
+        sgst_percentage: sgstRate,
+        igst_percentage: igstRate,
+        // additional_charges_json,
+        total: total,
+        reverse_charge: reverseCharge === "N" ? false : true, 
+        transport_details,
+        bank_details
+      }
+    })
+    console.log("Invoice created:", createInvoice)
+    setOpen(false)
   }
+
+  useEffect(() => {
+    setUpDocumentFromProfile();
+  }, [])
 
   // Search clients when search term changes
   useEffect(() => {
@@ -160,7 +253,7 @@ export function CreateDocumentDialog({ children }: { children: React.ReactNode }
   }, [clientSearch])
 
   const addLineItem = () => {
-    setLineItems([...lineItems, { description: "", hsnCode: "", quantity: 1, rate: 0, amount: 0 }])
+    setLineItems([...lineItems, { description: "", hsnCode: "", quantity: 1, uqc: "NOS", rate: 0, amount: 0 }])
   }
 
   const removeLineItem = (index: number) => {
@@ -212,32 +305,19 @@ export function CreateDocumentDialog({ children }: { children: React.ReactNode }
       <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent className="w-full max-w-[50vw] sm:max-w-[50vw] p-6 rounded-xl shadow-xl max-h-[70vh] overflow-y-scroll">
         <DialogHeader>
-          <DialogTitle>Create New Document</DialogTitle>
-          <DialogDescription>Create a new invoice, debit note, or credit note</DialogDescription>
+          <DialogTitle>Create New Invoice</DialogTitle>
+          <DialogDescription>Create a new invoice</DialogDescription>
         </DialogHeader>
 
         <div className="grid gap-6 py-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="document-type">Document Type</Label>
-              <Select value={documentType} onValueChange={setDocumentType}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select document type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="invoice">Invoice</SelectItem>
-                  <SelectItem value="debit-note">Debit Note</SelectItem>
-                  <SelectItem value="credit-note">Credit Note</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="document-number">{documentType === "invoice" ? "Invoice" : documentType === "debit-note" ? "Debit Note" : "Credit Note"} Number</Label>
+              <Label htmlFor="invoice-number">Invoice Number</Label>
               <Input
-                id="document-number"
-                value={documentNumber}
-                onChange={(e) => setDocumentNumber(e.target.value)}
-                placeholder={`Enter ${documentType === "invoice" ? "Invoice" : documentType === "debit-note" ? "Debit Note" : "Credit Note"} Number`} />
+                id="invoice-number"
+                value={invoiceNumber}
+                onChange={(e) => setInvoiceNumber(e.target.value)}
+                placeholder={`Enter Invoice Number`} />
             </div>
           </div>
 
@@ -318,6 +398,82 @@ export function CreateDocumentDialog({ children }: { children: React.ReactNode }
             </Popover>
           </div>
 
+          {/* Transport Details */}
+          <div className="space-y-3">
+            <Label>Transport Details</Label>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="transporterName">
+                  Transporter Name <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="transporterName"
+                  value={transporterName}
+                  onChange={(e) => setTransporterName(e.target.value)}
+                  placeholder="SELF"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="vehicleNo">Vehicle No.</Label>
+                <Input
+                  id="vehicleNo"
+                  value={vehicleNo}
+                  onChange={(e) => setVehicleNo(e.target.value)}
+                  placeholder="MH12AB1234"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="station">Station</Label>
+                <Input id="station" value={station} onChange={(e) => setStation(e.target.value)} placeholder="KURLA" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="eway">E-Way Bill No.</Label>
+                <Input
+                  id="eway"
+                  value={eWayBillNo}
+                  onChange={(e) => setEWayBillNo(e.target.value)}
+                  placeholder="781371653898"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Place of Supply + Reverse Charge */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Place of Supply</Label>
+              <Select value={placeOfSupply} onValueChange={setPlaceOfSupply}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select place of supply" />
+                </SelectTrigger>
+                <SelectContent>
+                  {indianStates.map((s) => (
+                    <SelectItem key={s.code} value={s.code}>
+                      {s.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Reverse Charge</Label>
+              <RadioGroup value={reverseCharge} onValueChange={(v: "Y" | "N") => setReverseCharge(v)} className="mt-1">
+                <div className="flex items-center space-x-4">
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem id="rc-n" value="N" />
+                    <Label htmlFor="rc-n">N</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem id="rc-y" value="Y" />
+                    <Label htmlFor="rc-y">Y</Label>
+                  </div>
+                </div>
+              </RadioGroup>
+            </div>
+          </div>
+
+          {/* Line Items */}
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <Label>Line Items</Label>
@@ -331,8 +487,9 @@ export function CreateDocumentDialog({ children }: { children: React.ReactNode }
             <div className="grid grid-cols-12 gap-2 text-sm font-medium text-muted-foreground">
               <div className="col-span-4">Description</div>
               <div className="col-span-2">HSN Code</div>
-              <div className="col-span-1">Quantity</div>
-              <div className="col-span-2">Rate</div>
+              <div className="col-span-1">Qty</div>
+              <div className="col-span-1">UQC</div>
+              <div className="col-span-1">Rate</div>
               <div className="col-span-2">Amount</div>
               <div className="col-span-1">Action</div>
             </div>
@@ -362,7 +519,21 @@ export function CreateDocumentDialog({ children }: { children: React.ReactNode }
                       onChange={(e) => updateLineItem(index, "quantity", Number.parseFloat(e.target.value) || 0)}
                     />
                   </div>
-                  <div className="col-span-2">
+                  <div className="col-span-1">
+                    <Select value={item.uqc} onValueChange={(val) => updateLineItem(index, "uqc", val)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="UQC" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {UQC_OPTIONS.map((opt) => (
+                          <SelectItem key={opt} value={opt}>
+                            {opt}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="col-span-1">
                     <Input
                       type="number"
                       placeholder="Rate"
@@ -549,9 +720,8 @@ export function CreateDocumentDialog({ children }: { children: React.ReactNode }
           <Button variant="outline" onClick={() => setOpen(false)}>
             Cancel
           </Button>
-          <Button onClick={handleDocumentCreate}>
-            Create{" "}
-            {documentType === "invoice" ? "Invoice" : documentType === "debit-note" ? "Debit Note" : "Credit Note"}
+          <Button onClick={handleInvoiceCreate}>
+            Create Invoice
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { CreateDocumentDialog } from "@/components/create-document-dialog"
+import { CreateInvoiceDialog } from "@/components/create-document-dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { invoke } from "@tauri-apps/api/core"
 
@@ -116,7 +116,7 @@ function DocumentTable({
             <TableCell>{item.invoice_date}</TableCell>
             <TableCell>{item.recipient_name}</TableCell>
             <TableCell className="font-mono text-sm">{item.recipient_gst_number}</TableCell>
-            <TableCell>{item.invoice_number}</TableCell>
+            <TableCell>{item.document_number}</TableCell>
             <TableCell>{item.total}</TableCell>
             <TableCell>
               <DropdownMenu>
@@ -160,7 +160,7 @@ function DocumentTable({
 export function InvoiceTabs() {
   const [activeTab, setActiveTab] = useState("invoices")
   const [searchTerm, setSearchTerm] = useState("")
-  const [searchBy, setSearchBy] = useState<"recipient_name" | "invoice_number" | "recipient_gst_number">("recipient_name")
+  const [searchBy, setSearchBy] = useState<"recipient_name" | "document_number" | "recipient_gst_number">("recipient_name")
   const [documentData, setDocumentData] = useState([])
 
 
@@ -204,32 +204,32 @@ export function InvoiceTabs() {
           <h1 className="text-3xl font-bold tracking-tight">Documents</h1>
           <p className="text-muted-foreground">Manage your invoices, debit notes, and credit notes</p>
         </div>
-        <CreateDocumentDialog>
+        <CreateInvoiceDialog>
           <Button>
             <Plus className="mr-2 h-4 w-4" />
             Create Document
           </Button>
-        </CreateDocumentDialog>
+        </CreateInvoiceDialog>
       </div>
 
       <div className="flex items-center space-x-2">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder={`Search ${activeTab} by ${searchBy === "recipient_name" ? "company name" : searchBy === "invoice_number" ? "Invoice Number" : "GST number"}...`}
+            placeholder={`Search ${activeTab} by ${searchBy === "recipient_name" ? "company name" : searchBy === "document_number" ? "Invoice Number" : "GST number"}...`}
             className="pl-8"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        <Select value={searchBy} onValueChange={(value: "recipient_name" | "recipient_gst_number" | "invoice_number") => setSearchBy(value)}>
+        <Select value={searchBy} onValueChange={(value: "recipient_name" | "recipient_gst_number" | "document_number") => setSearchBy(value)}>
           <SelectTrigger className="w-[140px]">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="recipient_name">Name</SelectItem>
             <SelectItem value="recipient_gst_number">GST Number</SelectItem>
-            <SelectItem value="invoice_number">Invoice No.</SelectItem>
+            <SelectItem value="document_number">Invoice No.</SelectItem>
           </SelectContent>
         </Select>
         <Button variant="outline" size="sm">

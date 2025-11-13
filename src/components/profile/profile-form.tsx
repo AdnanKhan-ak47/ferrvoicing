@@ -91,24 +91,6 @@ export function ProfileForm() {
 
     const getProfileDetails = async () => {
       const profileDetails = await invoke("get_profile_details");
-
-// address: "Room no, Test, Test Road, Near Test"
-// bank_account_name: "Test"
-// bank_account_number: "123123123123123"
-// bank_branch: "TEST BRANCH"
-// bank_ifsc: "TEST0001231"
-// bank_name: "TEST Bank of India"
-// city: "Mumbai"
-// company_name: "Test"
-// email: "test@gmail.com"
-// gst_number: "27AJMSK3022R1ZT"
-// invoice_prefix: "QT"
-// next_invoice_number: 4
-// phone: "2131231231"
-// pincode: "400081"
-// state: "27"
-// Object Prototype
-
       setFormData({
         // Company Information
         companyName: profileDetails.company_name,

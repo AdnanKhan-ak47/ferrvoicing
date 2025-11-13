@@ -6,6 +6,7 @@ pub struct InvoiceItem {
     pub description: String,
     pub hsn_code: String, // Harmonized System Nomenclature code
     pub quantity: f64,
+    pub unit: String,
     pub rate: f64,
     pub amount: f64,
 }
@@ -14,6 +15,24 @@ pub struct InvoiceItem {
 pub struct AdditionalCharges{
     pub description: String,
     pub amount: f64,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct BankDetails {
+    pub bank_name: String,
+    pub branch: String,
+    pub account_name: String,
+    pub account_no: String,
+    pub ifsc_code: String
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct TransportDetails {
+    transporter_name: String,
+    place_of_supply: String,
+    vehicle_no: Option<String>,
+    station: Option<String>,
+    eway_bill_no: Option<String>
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -36,8 +55,11 @@ pub struct Invoice {
     pub sgst_percentage: Option<f64>,
     pub igst_percentage: Option<f64>,
     pub additional_charges: Option<Vec<AdditionalCharges>>, // Optional additional charges
+    pub bank_details: BankDetails,
+    pub transport_details: TransportDetails,
     pub total: f64,
     pub items: Vec<InvoiceItem>,
+    pub reverse_charge: bool
 }
 
 impl Invoice {
@@ -61,6 +83,9 @@ impl Invoice {
         igst_percentage: Option<f64>,
         total: f64,
         items: Vec<InvoiceItem>,
+        bank_details: BankDetails,
+        transport_details: TransportDetails,
+        reverse_charge: bool
     ) -> Self {
         Self {
             id: Some(id),
@@ -83,6 +108,9 @@ impl Invoice {
             additional_charges: None, // Initialize with no additional charges
             total,
             items,
+            bank_details,
+            transport_details,
+            reverse_charge
         }
     }
 

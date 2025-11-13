@@ -1,4 +1,4 @@
-use rusqlite::params;
+use rusqlite::{params, OpenFlags};
 use serde::Deserialize;
 use tauri::{command, Error};
 use uuid::Uuid;
@@ -16,6 +16,8 @@ pub struct InvoiceFilter {
 pub fn create_invoice(invoice: Invoice) -> Result<String, String> {
     let conn = get_connection().map_err(|e| e.to_string())?;
     let items_json = serde_json::to_string(&invoice.items).map_err(|e| e.to_string())?;
+    let bank_details_json = serde_json::to_string(&invoice.bank_details).map_err(|e| e.to_string())?;
+    let transport_details_json = serde_json::to_string(&invoice.transport_details).map_err(|e| e.to_string())?;
     let additional_charges_json = serde_json::to_string(&invoice.additional_charges)
     .map_err(|e| e.to_string())?;
     
@@ -40,8 +42,11 @@ pub fn create_invoice(invoice: Invoice) -> Result<String, String> {
         sgst_percentage,
         igst_percentage,
         additional_charges_json,
-        total_amount
-    ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20)",
+        total_amount,
+        reverse_charge,
+        bank_details_json,
+        transport_details_json
+    ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23)",
         params![
             Uuid::new_v4().to_string(), // Generate a new UUID for the invoice ID
             invoice.issuer_name,
@@ -62,7 +67,10 @@ pub fn create_invoice(invoice: Invoice) -> Result<String, String> {
             invoice.sgst_percentage,
             invoice.igst_percentage,
             additional_charges_json,
-            invoice.total
+            invoice.total,
+            invoice.reverse_charge,
+            bank_details_json,
+            transport_details_json
         ],
     )
     .map_err(|e| e.to_string())?;
@@ -119,8 +127,14 @@ pub fn search_invoices(filter: InvoiceFilter) -> Result<Vec<Invoice>, String> {
         params![value],
         |row| {
             let items_json: String = row.get("items_json")?;
+            let bank_details_json: String = row.get("bank_details_json")?;
+            let transport_details_json: String = row.get("transport_details_json")?;
             let additional_charges_json: String = row.get("additional_charges_json")?;
             let items = serde_json::from_str(&items_json)
+                .map_err(|e| rusqlite::Error::FromSqlConversionFailure(0, rusqlite::types::Type::Text, Box::new(e)))?;
+            let bank_details = serde_json::from_str(&bank_details_json)
+                .map_err(|e| rusqlite::Error::FromSqlConversionFailure(0, rusqlite::types::Type::Text, Box::new(e)))?;
+            let transport_details = serde_json::from_str(&transport_details_json)
                 .map_err(|e| rusqlite::Error::FromSqlConversionFailure(0, rusqlite::types::Type::Text, Box::new(e)))?;
             let additional_charges = serde_json::from_str(&additional_charges_json)
                 .map_err(|e| rusqlite::Error::FromSqlConversionFailure(0, rusqlite::types::Type::Text, Box::new(e)))?;
@@ -139,13 +153,16 @@ pub fn search_invoices(filter: InvoiceFilter) -> Result<Vec<Invoice>, String> {
                 recipient_phone: row.get("recipient_phone")?,
                 recipient_email: row.get("recipient_email")?,
                 items: items,
+                bank_details: bank_details,
+                transport_details: transport_details,
                 invoice_date: row.get("invoice_date")?,
                 amount: row.get("amount")?,
                 cgst_percentage: row.get("cgst_percentage")?,
                 sgst_percentage: row.get("sgst_percentage")?,
                 igst_percentage: row.get("igst_percentage")?,
                 additional_charges: additional_charges,
-                total: row.get("total_amount")?
+                total: row.get("total_amount")?,
+                reverse_charge: row.get("reverse_charge")?
             })
         },
     ).map_err(|e| e.to_string())?;
