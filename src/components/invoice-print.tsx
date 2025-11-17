@@ -1,7 +1,7 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
-import { Download, Printer } from "lucide-react"
+import { Download, Printer } from 'lucide-react'
 
 interface InvoiceItem {
   description: string
@@ -69,9 +69,9 @@ interface InvoicePrintProps {
 export function InvoicePrint({ invoiceData }: InvoicePrintProps) {
 
   const handleDownloadPDF = async () => {
-    const html2pdf = (await import("html2pdf.js")).default;
+    const html2pdf = (await import("html2pdf.js")).default
 
-    const element = document.getElementById("invoice-print")
+    const element = document.getElementById("invoice-print-outer")
     if (!element) return
 
     const opt = {
@@ -89,21 +89,18 @@ export function InvoicePrint({ invoiceData }: InvoicePrintProps) {
   }
 
   const handlePrintInNewWindow = () => {
-    const invoiceElement = document.getElementById("invoice-print");
+    const invoiceElement = document.getElementById("invoice-print-outer");
     if (!invoiceElement) {
-      console.error("Print Error: Could not find element #invoice-print");
+      console.error("Print Error: Could not find element #invoice-print-outer");
       return;
     }
 
-    // 1. Create a hidden iframe
     const iframe = document.createElement("iframe");
     iframe.style.display = "none";
     document.body.appendChild(iframe);
 
-    // Get the iframe's document
     const iframeDoc = iframe.contentWindow.document;
 
-    // 2. Clone all <style> and <link rel="stylesheet"> tags from the main document
     const headElements = document.querySelectorAll(
       'head > style, head > link[rel="stylesheet"]'
     );
@@ -112,31 +109,22 @@ export function InvoicePrint({ invoiceData }: InvoicePrintProps) {
       iframeHead.appendChild(el.cloneNode(true));
     });
 
-    // 3. Add a @print style rule to ensure it fits the page
     const printStyle = iframeDoc.createElement("style");
     printStyle.textContent = `
       @media print {
         body { margin: 0; padding: 0; }
         @page { size: A4; margin: 0; }
-        /* Ensure the layout from your previous fix works */
-        #invoice-print {
-          min-height: 29.7cm; /* A4 height */
-          display: flex;
-          flex-direction: column;
-        }
-        .flex-grow {
-          flex-grow: 1;
+        #invoice-print-outer {
+          width: 210mm;
+          height: 297mm;
+          display: block;
         }
       }
     `;
-    iframeHead.appendChild(printStyle);
+    // iframeHead.appendChild(printStyle);
 
-    // 4. Set the iframe body content
     const iframeBody = iframeDoc.body;
     iframeBody.innerHTML = invoiceElement.innerHTML;
-
-    // 5. Wait for all styles to load before printing
-    // This is the most critical part
 
     let loadedStyles = 0;
     const stylesheets = iframeHead.querySelectorAll('link[rel="stylesheet"]');
@@ -149,7 +137,6 @@ export function InvoicePrint({ invoiceData }: InvoicePrintProps) {
       } catch (e) {
         console.error("Print failed:", e);
       } finally {
-        // Clean up: remove the iframe
         setTimeout(() => {
           document.body.removeChild(iframe);
         }, 500);
@@ -157,12 +144,10 @@ export function InvoicePrint({ invoiceData }: InvoicePrintProps) {
     };
 
     if (totalStyles === 0) {
-      // If no linked styles, print immediately
       triggerPrint();
       return;
     }
 
-    // Add onload/onerror handlers for each stylesheet
     stylesheets.forEach(link => {
       const onEvent = () => {
         loadedStyles++;
@@ -171,22 +156,17 @@ export function InvoicePrint({ invoiceData }: InvoicePrintProps) {
         }
       };
       link.onload = onEvent;
-      link.onerror = onEvent; // Count errors as "loaded" too so we don't block
+      link.onerror = onEvent;
     });
 
-    // Add a safety timeout in case onload events don't fire
     setTimeout(() => {
       if (loadedStyles < totalStyles) {
         console.warn("Print timed out waiting for styles. Printing anyway.");
         triggerPrint();
       }
-    }, 3000); // 3-second timeout
-
+    }, 3000);
   };
 
-
-
-  // Calculate totals
   const itemsSubtotal = invoiceData.items.reduce((sum, item) => sum + item.amount, 0)
   const additionalChargesTotal = invoiceData.additionalCharges?.reduce((sum, charge) => sum + charge.amount, 0) || 0
   const subtotal = itemsSubtotal + additionalChargesTotal
@@ -198,7 +178,6 @@ export function InvoicePrint({ invoiceData }: InvoicePrintProps) {
   const totalTax = cgst + sgst + igst
   const total = Math.round(subtotal + totalTax)
 
-  // Convert number to words (simplified version)
   const ones = [
     "",
     "One",
@@ -223,65 +202,50 @@ export function InvoicePrint({ invoiceData }: InvoicePrintProps) {
   ]
   const tens = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"]
 
-  /**
-   * Converts a number into its string representation in the Indian numbering system
-   * (Lakhs, Crores).
-   * @param num The number to convert.
-   * @returns The number in words.
-   */
   const numberToWords = (num: number): string => {
-    // A helper function to add a space and recursively call the main function
-    // This avoids adding " Zero" at the end of numbers.
     const numToString = (n: number): string => {
       if (n === 0) return "";
       return " " + numberToWords(n);
     }
 
-    // Handle the base cases
     if (num === 0) return "Zero";
 
-    // Handle negative numbers (optional, but good practice)
     if (num < 0) return "Negative" + numToString(Math.abs(num));
 
-    // --- Logic for Indian Numbering System ---
-    // We check from the largest denomination downwards.
-
-    // 1. Crores (1,00,00,000)
     if (num >= 10000000) {
       return numberToWords(Math.floor(num / 10000000)) + " Crore" + numToString(num % 10000000);
     }
 
-    // 2. Lakhs (1,00,000)
     if (num >= 100000) {
       return numberToWords(Math.floor(num / 100000)) + " Lakh" + numToString(num % 100000);
     }
 
-    // 3. Thousands (1,000)
     if (num >= 1000) {
       return numberToWords(Math.floor(num / 1000)) + " Thousand" + numToString(num % 1000);
     }
 
-    // 4. Hundreds (100)
     if (num >= 100) {
       return numberToWords(Math.floor(num / 100)) + " Hundred" + numToString(num % 100);
     }
 
-    // 5. Tens (20-99)
     if (num >= 20) {
       return tens[Math.floor(num / 10)] + numToString(num % 10);
     }
 
-    // 6. Ones (1-19)
-    // This is the final case, so it just returns from the `ones` array.
     return ones[num];
   }
 
   const totalInWords = numberToWords(total) + " Only"
 
+  const MAX_ITEMS_DISPLAY = 15
+  const displayItems = Array(MAX_ITEMS_DISPLAY)
+    .fill(null)
+    .map((_, index) => invoiceData.items[index] || null)
+
   return (
     <div className="min-h-screen bg-gray-50 print:bg-white print:min-h-0">
       {/* Action Buttons - Hidden when printing */}
-      <div className="flex justify-end gap-2 mb-6 print:hidden">
+      <div className="flex justify-end gap-2 mb-6 print:hidden p-4">
         <Button onClick={handlePrintInNewWindow}>
           <Printer className="mr-2 h-4 w-4" />
           Print Invoice
@@ -292,262 +256,250 @@ export function InvoicePrint({ invoiceData }: InvoicePrintProps) {
         </Button>
       </div>
 
-      {/* Invoice Container */}
-      <div id="invoice-print" className="max-w-4xl mx-auto bg-white print:shadow-none print:max-w-none">
-        <div className="border box-border border-black text-xs leading-tight text-black">
-
-          <div className="text-center border box-border p-2 border-black">
-            <div className="font-bold text-lg mb-1 text-black">TAX INVOICE</div>
-            <div className="font-bold text-base text-black">{invoiceData.issuer.name}</div>
-            <div className="text-xs text-black">{invoiceData.issuer.address}</div>
-            <div className="text-xs text-black">
+      <div 
+        id="invoice-print-outer"
+        className="w-[210mm] h-[297mm] p-[8mm] mx-auto bg-white border-2 border-black print:border-2 print:border-black print:w-[210mm] print:h-[297mm]"
+      >
+        <div 
+          id="invoice-print"
+          className="w-full h-full flex flex-col text-xs font-serif border-2 border-black print:border-2 print:border-black text-black overflow-hidden box-border"
+        >
+          {/* Header Section */}
+          <div className="text-center border-b border-black pb-2 px-2 flex-shrink-0">
+            <div className="text-base font-bold mb-1">TAX INVOICE</div>
+            <div className="text-sm font-bold mb-1">{invoiceData.issuer.name}</div>
+            <div className="text-xs mb-0.5">{invoiceData.issuer.address}</div>
+            <div className="text-xs mb-0.5">
               Email-{invoiceData.issuer.email}, mobile-{invoiceData.issuer.phone}
             </div>
-            {/* <div className="text-xs font-semibold text-black">PAN : {invoiceData.issuer.pan}</div> */}
-            <div className="text-xs font-semibold text-black">GSTIN : {invoiceData.issuer.gstNumber}</div>
+            <div className="text-xs font-bold">GSTIN : {invoiceData.issuer.gstNumber}</div>
           </div>
 
           {/* Invoice Details Grid */}
-          <div className="grid grid-cols-2 gap-0 text-xs border-box">
-            <div className="border box-border border-black p-1">
-              <div className="flex text-black">
+          <div className="grid grid-cols-2 border-b border-black text-xs flex-shrink-0">
+            <div className="border-r border-black p-1.5">
+              <div className="flex mb-0.5">
                 <span className="w-20">Invoice No.</span>
-                <span className="mr-2">:</span>
-                <span className="font-semibold">{invoiceData.invoiceNumber}</span>
-                {console.log("This is invoiceData: ", invoiceData)}
+                <span className="mr-1">:</span>
+                <span className="font-bold">{invoiceData.invoiceNumber}</span>
               </div>
-              <div className="flex text-black">
+              <div className="flex mb-0.5">
                 <span className="w-20">Dated</span>
-                <span className="mr-2">:</span>
+                <span className="mr-1">:</span>
                 <span>{new Date(invoiceData.date).toLocaleDateString("en-GB")}</span>
               </div>
-              <div className="flex text-black">
+              <div className="flex mb-0.5">
                 <span className="w-20">Place of Supply</span>
-                <span className="mr-2">:</span>
+                <span className="mr-1">:</span>
                 <span>{invoiceData.placeOfSupply}</span>
               </div>
-              <div className="flex text-black">
+              <div className="flex">
                 <span className="w-20">Reverse Charge</span>
-                <span className="mr-2">:</span>
+                <span className="mr-1">:</span>
                 <span>{invoiceData.reverseCharge}</span>
               </div>
             </div>
 
-            <div className=" border box-border border-black p-1">
-              <div className="flex text-black">
+            <div className="p-1.5">
+              <div className="flex mb-0.5">
                 <span className="w-20">Transport</span>
-                <span className="mr-2">:</span>
+                <span className="mr-1">:</span>
                 <span>{invoiceData.transport?.name || ""}</span>
               </div>
-              <div className="flex text-black">
+              <div className="flex mb-0.5">
                 <span className="w-20">Vehicle No.</span>
-                <span className="mr-2">:</span>
+                <span className="mr-1">:</span>
                 <span>{invoiceData.transport?.vehicleNo || ""}</span>
               </div>
-              <div className="flex text-black">
+              <div className="flex mb-0.5">
                 <span className="w-20">Station</span>
-                <span className="mr-2">:</span>
+                <span className="mr-1">:</span>
                 <span>{invoiceData.transport?.station || ""}</span>
               </div>
-              <div className="flex text-black">
+              <div className="flex">
                 <span className="w-20">E-Way Bill No.</span>
-                <span className="mr-2">:</span>
+                <span className="mr-1">:</span>
                 <span>{invoiceData.transport?.eWayBillNo || ""}</span>
               </div>
             </div>
           </div>
 
           {/* Billing and Shipping */}
-          <div className="grid grid-cols-2 gap-0 text-xs">
-            <div className="box-border border border-black p-1">
-              <div className="font-semibold mb-1 text-black">Billed to :</div>
-              <div className="font-bold text-black">{invoiceData.recipient.name}</div>
-              <div className="text-black whitespace-pre-line">{invoiceData.recipient.address}</div>
-              <div className="mt-2">
-                {/* <div className="text-black">Party PAN : {invoiceData.recipient.pan}</div> */}
-                <div className="text-black">GSTIN / UIN : {invoiceData.recipient.gstNumber}</div>
-              </div>
+          <div className="grid grid-cols-2 border-b border-black text-xs flex-shrink-0">
+            <div className="border-r border-black p-1.5">
+              <div className="font-bold mb-0.5">Billed to :</div>
+              <div className="font-bold text-xs">{invoiceData.recipient.name}</div>
+              <div className="whitespace-pre-line text-xs mb-0.5">{invoiceData.recipient.address}</div>
+              <div className="text-xs">GSTIN / UIN : {invoiceData.recipient.gstNumber}</div>
             </div>
 
-            <div className="box-border border border-black p-1">
-              <div className="font-semibold mb-1 text-black">Shipped to :</div>
-              <div className="font-bold text-black">{invoiceData.recipient.name}</div>
-              <div className="text-black whitespace-pre-line">{invoiceData.recipient.address}</div>
-              <div className="mt-2">
-                {/* <div className="text-black">Party PAN : {invoiceData.recipient.pan}</div> */}
-                <div className="text-black">GSTIN / UIN : {invoiceData.recipient.gstNumber}</div>
-              </div>
+            <div className="p-1.5">
+              <div className="font-bold mb-0.5">Shipped to :</div>
+              <div className="font-bold text-xs">{invoiceData.recipient.name}</div>
+              <div className="whitespace-pre-line text-xs mb-0.5">{invoiceData.recipient.address}</div>
+              <div className="text-xs">GSTIN / UIN : {invoiceData.recipient.gstNumber}</div>
             </div>
           </div>
 
           {/* IRN Details */}
           {invoiceData.irn && (
-            <div className="text-xs border border-black box-border text-black p-1">
+            <div className="text-xs border-b border-black p-1 flex-shrink-0">
               <span>IRN : {invoiceData.irn}</span>
-              <span className="ml-4">Ack.No.: {invoiceData.ackNo}</span>
-              <span className="ml-4">Ack. Date : {invoiceData.ackDate}</span>
+              <span className="ml-2.5">Ack.No.: {invoiceData.ackNo}</span>
+              <span className="ml-2.5">Ack. Date : {invoiceData.ackDate}</span>
             </div>
           )}
 
           {/* Items Table */}
-          <table className="w-full border-collapse border border-black text-xs mb-2">
-            <thead>
-              <tr>
-                <th className="border border-black p-1 text-left w-8 bg-white text-black">S.N.</th>
-                <th className="border border-black p-1 text-left bg-white text-black">Description of Goods</th>
-                <th className="border border-black p-1 text-center w-16 bg-white text-black">HSN/SAC Code</th>
-                <th className="border border-black p-1 text-center w-20 bg-white text-black">Qty. Unit</th>
-                <th className="border border-black p-1 text-center w-16 bg-white text-black">Price</th>
-                <th className="border border-black p-1 text-center w-20 bg-white text-black">Amount(Rs.)</th>
-              </tr>
-            </thead>
-            <tbody>
-              {invoiceData.items.map((item, index) => (
-                <tr key={index}>
-                  <td className="border border-black p-1 text-center align-top text-black">{index + 1}.</td>
-                  <td className="border border-black p-1 align-top text-black">
-                    <div className="whitespace-pre-line">{item.description}</div>
+          <div className="flex flex-col border-b border-black overflow-hidden flex-1 min-h-0">
+            <table className="w-full border-collapse text-xs table-fixed">
+              <thead>
+                <tr className="border-b border-black">
+                  <th className="w-[5%] p-1 text-center font-bold bg-gray-100 text-xs">S.N.</th>
+                  <th className="w-[38%] p-1 text-left font-bold bg-gray-100 text-xs">Description of Goods</th>
+                  <th className="w-[12%] p-1 text-center font-bold bg-gray-100 text-xs">HSN/SAC Code</th>
+                  <th className="w-[12%] p-1 text-center font-bold bg-gray-100 text-xs">Qty. Unit</th>
+                  <th className="w-[13%] p-1 text-right font-bold bg-gray-100 text-xs">Price</th>
+                  <th className="w-[14%] p-1 text-right font-bold bg-gray-100 text-xs">Amount(Rs.)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {displayItems.map((item, index) => (
+                  <tr key={index} className="">
+                    <td className="p-1 text-center text-xs align-top border-r border-black">
+                      {item ? index + 1 + "." : ""}
+                    </td>
+                    <td className="p-1 text-left text-xs align-top border-r border-black break-words">
+                      {item?.description}
+                    </td>
+                    <td className="p-1 text-center text-xs align-top border-r border-black">
+                      {item?.hsnCode}
+                    </td>
+                    <td className="p-1 text-center text-xs align-top border-r border-black">
+                      {item ? `${item.quantity.toFixed(3)}${item.unit || "PAIR"}` : ""}
+                    </td>
+                    <td className="p-1 text-right text-xs align-top border-r border-black">
+                      {item?.rate.toFixed(2)}
+                    </td>
+                    <td className="p-1 text-right text-xs align-top">
+                      {item ? item.amount.toLocaleString("en-IN", { minimumFractionDigits: 2 }) : ""}
+                    </td>
+                  </tr>
+                ))}
+
+                {/* Subtotal Row */}
+                <tr className="border-t border-black">
+                  <td colSpan={4} className="p-1"></td>
+                  <td className="p-1 text-left font-bold text-xs border-r border-black">
+                    Net Amount:
                   </td>
-                  <td className="border border-black p-1 text-center align-top text-black">{item.hsnCode}</td>
-                  <td className="border border-black p-1 text-center align-top text-black">
-                    {item.quantity.toFixed(3)}
-                    {item.unit || "PAIR"}
-                  </td>
-                  <td className="border border-black p-1 text-right align-top text-black">{item.rate.toFixed(2)}</td>
-                  <td className="border border-black p-1 text-right align-top text-black">
-                    {item.amount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                  <td className="p-1 text-right font-bold text-xs">
+                    {subtotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                   </td>
                 </tr>
-              ))}
 
-              {/* Subtotal Row */}
-              <tr>
-                <td className="p-1" colSpan={3}></td>
-                <td className="border border-black p-1 text-left text-black" colSpan={2}>
-                  Net Amount:
-                </td>
-                <td className="border border-black p-1 text-right font-semibold text-black">
-                  {subtotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                </td>
-              </tr>
+                {/* Tax Rows */}
+                {invoiceData.taxType === "interstate" && igst > 0 && (
+                  <tr>
+                    <td colSpan={4} className="p-1"></td>
+                    <td className="p-1 text-left text-xs border-r border-black">
+                      Add : IGST @ {invoiceData.igstRate}.00 %
+                    </td>
+                    <td className="p-1 text-right text-xs">
+                      {igst.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                    </td>
+                  </tr>
+                )}
 
-              {/* Tax Rows */}
-              {invoiceData.taxType === "interstate" && igst > 0 && (
-                <tr>
-                  <td className="p-1" colSpan={3}></td>
-                  <td className="border border-black p-1 text-left text-black" colSpan={2}>
-                    Add : IGST @ {invoiceData.igstRate}.00 %
+                {invoiceData.taxType === "intrastate" && (
+                  <>
+                    {cgst > 0 && (
+                      <tr>
+                        <td colSpan={4} className="p-1"></td>
+                        <td className="p-1 text-left text-xs border-r border-black">
+                          Add : CGST @ {invoiceData.cgstRate}.00 %
+                        </td>
+                        <td className="p-1 text-right text-xs">
+                          {cgst.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                        </td>
+                      </tr>
+                    )}
+                    {sgst > 0 && (
+                      <tr>
+                        <td colSpan={4} className="p-1"></td>
+                        <td className="p-1 text-left text-xs border-r border-black">
+                          Add : SGST @ {invoiceData.sgstRate}.00 %
+                        </td>
+                        <td className="p-1 text-right text-xs">
+                          {sgst.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                        </td>
+                      </tr>
+                    )}
+                  </>
+                )}
+
+                {/* Grand Total Row */}
+                <tr className="border-t border-black">
+                  <td colSpan={4} className="p-1"></td>
+                  <td className="p-1 text-left font-bold text-xs border-r border-black">
+                    Total Amount
                   </td>
-                  <td className="border border-black p-1 text-right text-black">
-                    {igst.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                  <td className="p-1 text-right font-bold text-xs">
+                    {total.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                   </td>
                 </tr>
-              )}
-
-              {invoiceData.taxType === "intrastate" && (
-                <>
-                  {cgst > 0 && (
-                    <tr>
-                      <td className="p-1" colSpan={3}></td>
-                      <td className="border border-black p-1 text-left text-black" colSpan={2}>
-                        Add : CGST @ {invoiceData.cgstRate}.00 %
-                      </td>
-                      <td className="border border-black p-1 text-right text-black">
-                        {cgst.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                      </td>
-                    </tr>
-                  )}
-                  {sgst > 0 && (
-                    <tr>
-                      <td className="border border-black p-1" colSpan={3}></td>
-                      <td className="border border-black p-1 text-left text-black" colSpan={2}>
-                        Add : SGST @ {invoiceData.sgstRate}.00 %
-                      </td>
-                      <td className="border border-black p-1 text-right text-black">
-                        {sgst.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                      </td>
-                    </tr>
-                  )}
-                </>
-              )}
-              <tr>
-                <td colSpan={3}></td>
-                <td className="border border-black" colSpan={2}>
-                  Total Amount
-                </td>
-                <td className="border border-black text-right font-semibold text-black">
-                  <span>{total.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
-                </td>
-              </tr>
-
-              {/* <tr>
-                <td className="" colSpan={1}>Amount in Rupees:</td>
-                <td colSpan={4} className="font-semibold">{totalInWords}</td>
-              </tr> */}
-            </tbody>
-          </table>
-
-          {/* Grand Total */}
-          {/* <div className="text-center font-bold text-sm mb-2 text-black">
-            <div className="flex justify-between">
-              <span>Grand Total</span>
-              <span>
-                {invoiceData.items.reduce((sum, item) => sum + item.quantity, 0).toFixed(3)}{" "}
-                {invoiceData.items[0]?.unit || "PAIR"}
-              </span>
-              <span>{total.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
-            </div>
-          </div> */}
+              </tbody>
+            </table>
+          </div>
 
           {/* Amount in Words */}
-          <div className="text-xs mb-2 p-1 text-black">
-            <span>Amount in Words: </span>
-            <span className="font-semibold">Rupees {totalInWords}</span>
+          <div className="text-xs border-b border-black p-1.5 flex-shrink-0">
+            <span>Amount in Rupees: </span>
+            <span className="font-bold">Rupees {totalInWords}</span>
           </div>
 
           {/* Bank Details and Terms */}
-          <div className="grid grid-cols-2 gap-4 text-xs border-t border-b border-black p-2">
-            <div>
+          <div className="grid grid-cols-2 border-b border-black text-xs flex-shrink-0">
+            <div className="border-r border-black p-1.5">
               {invoiceData.bankDetails && (
                 <div>
-                  <div className="font-semibold text-black">Bank Details:</div>
-                  <div className="text-black">
+                  <div className="font-bold mb-0.5">Bank Details:</div>
+                  <div className="text-xs leading-tight">
                     BANK-{invoiceData.bankDetails.bankName} . BRANCH- {invoiceData.bankDetails.branch}
                   </div>
-                  <div className="text-black">
+                  <div className="text-xs">
                     A/C NO- {invoiceData.bankDetails.accountNo} . IFSC CODE- {invoiceData.bankDetails.ifscCode}
                   </div>
                 </div>
               )}
             </div>
-
           </div>
 
           {/* Footer */}
-          <div className="grid grid-cols-2 text-xs box-border">
-            <div className="border-r border-black box-border p-2">
-              <div className="font-semibold text-black">Terms & Conditions</div>
+          <div className="grid grid-cols-2 gap-0 flex-shrink-0 text-xs">
+            <div className="border-r border-black p-1.5">
+              <div className="font-bold mb-0.5">Terms & Conditions</div>
               <div className="text-xs leading-tight">
-                <div className="text-black">1. Goods once sold will not be taken back.</div>
-                <div className="text-black">2. Payment is respectfully requested within 15 days from the date of invoice.</div>
-                <div className="text-black">3. Goods are dispatched at the buyer’s risk. The seller is not responsible for any damage during transit unless agreed in writing.</div>
-                <div className="text-black">4. All disputes, if any, shall be subject to the jurisdiction of Mumbai, Maharashtra.</div>
-                <div className="text-black">5. Claims for shortages or damages must be reported within 3 days of delivery. Returns are accepted only with prior approval and intact packaging.</div>
-                <div className="text-black">6. Goods remain the property of the seller until full payment is received.</div>
-                <div className="text-black">E.& O.E.</div>
+                <div>1. Goods once sold will not be taken back.</div>
+                <div>2. Payment is respectfully requested within 15 days from the date of invoice.</div>
+                <div>3. Goods are dispatched at the buyer's risk. The seller is not responsible for any damage during transit unless agreed in writing.</div>
+                <div>4. All disputes, if any, shall be subject to the jurisdiction of Mumbai, Maharashtra.</div>
+                <div>5. Claims for shortages or damages must be reported within 3 days of delivery. Returns are accepted only with prior approval and intact packaging.</div>
+                <div>6. Goods remain the property of the seller until full payment is received.</div>
+                <div>E.& O.E.</div>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 box-border">
-              <div className="border-b border-black box-border p-2">
-                <div className="font-semibold text-black">Receiver's Signature :</div>
-                <div className="h-16"></div>
+            <div className="grid grid-rows-2 gap-0">
+              <div className="border-b border-black p-1.5">
+                <div className="font-bold text-xs">Receiver's Signature :</div>
+                <div className="h-4"></div>
               </div>
 
-              <div className="text-right box-border p-2">
-                <div className="font-semibold text-black">For {invoiceData.issuer.name}</div>
-                <div className="h-16"></div>
-                <div className="font-semibold text-black">Authorised Signatory</div>
+              <div className="p-1.5 text-right flex flex-col justify-end">
+                <div className="font-bold text-xs">For {invoiceData.issuer.name}</div>
+                <div className="h-3"></div>
+                <div className="font-bold text-xs">Authorised Signatory</div>
               </div>
             </div>
           </div>
