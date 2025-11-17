@@ -134,9 +134,9 @@ export default function InvoicePage() {
           items: result[0].items,
           additionalCharges: result[0].additional_charges,
           taxType: result[0].cgst_percentage === 0 ? "interstate" : "intrastate",
-          cgstRate: 0,
-          sgstRate: 0,
-          igstRate: 18,
+          cgstRate: result[0].cgst_percentage,
+          sgstRate: result[0].sgst_percentage,
+          igstRate: result[0].igst_percentage,
           notes: result[0]?.notes,
           transport: {
             name: result[0].transport_details.transporter_name,
